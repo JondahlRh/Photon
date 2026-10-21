@@ -1,0 +1,172 @@
+# -----------------------------------------------------------------------------
+# CI pipeline for Project Photon
+# Runs on every pull request against dev/main and on pushes to dev/main.
+# The final job "ci-passed" is the single required status check for
+# branch protection (see SETUP.md).
+# -----------------------------------------------------------------------------
+name: CI
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+
+# Cancel outdated runs of the same PR/branch to save Actions minutes
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  # Minimum line coverage in percent. 0 = report only, no gate.
+  COVERAGE_MIN: 0
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1) Style: CSharpier formatting, file headers, architecture rule
+  # ---------------------------------------------------------------------------
+  style:
+    name: Style & Conventions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Restore local tools (CSharpier)
+        run: dotnet tool restore
+
+      - name: Check formatting (CSharpier)
+        run: dotnet csharpier check .
+
+      - name: Check mandatory file headers
+        run: bash scripts/check-headers.sh
+
+      - name: Check architecture (Photon.Core has no UI dependencies)
+        run: bash scripts/check-architecture.sh
+
+  # ---------------------------------------------------------------------------
+  # 2) Build (warnings = errors), tests and coverage
+  # ---------------------------------------------------------------------------
+  build-test:
+    name: Build, Test & Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        shell: bash
+        run: |
+          if [ -n "$(git ls-files '*packages.lock.json')" ]; then
+            dotnet restore --locked-mode
+          else
+            echo "::warning::No packages.lock.json committed yet - running unlocked restore."
+            dotnet restore
+          fi
+
+      - name: Build (warnings as errors)
+        run: dotnet build --no-restore --configuration Release -p:ContinuousIntegrationBuild=true
+
+      - name: Test with coverage
+        run: >
+          dotnet test --no-build --configuration Release
+          --collect:"XPlat Code Coverage"
+          --results-directory ./TestResults
+          --logger "trx;LogFilePrefix=results"
+
+      - name: Generate coverage report
+        if: always()
+        run: |
+          dotnet tool restore
+          dotnet reportgenerator \
+            -reports:"TestResults/**/coverage.cobertura.xml" \
+            -targetdir:"CoverageReport" \
+            -reporttypes:"HtmlInline;MarkdownSummaryGithub;TextSummary" \
+            -assemblyfilters:"-*.Tests"
+          cat CoverageReport/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enforce minimum coverage
+        if: env.COVERAGE_MIN != '0'
+        run: |
+          coverage=$(grep -m1 -oP 'Line coverage:\s*\K[0-9.]+' CoverageReport/Summary.txt)
+          echo "Line coverage: ${coverage}% (minimum: ${COVERAGE_MIN}%)"
+          awk -v c="$coverage" -v m="$COVERAGE_MIN" 'BEGIN { exit (c+0 < m+0) ? 1 : 0 }' \
+            || { echo "::error::Coverage ${coverage}% is below ${COVERAGE_MIN}%"; exit 1; }
+
+      - name: Upload test results & coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-and-coverage
+          path: |
+            TestResults/
+            CoverageReport/
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # 3) Security: vulnerable and deprecated NuGet packages
+  #    (CodeQL is not available for private repos on GitHub Pro)
+  # ---------------------------------------------------------------------------
+  security:
+    name: Dependency Security
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        shell: bash
+        run: |
+          if [ -n "$(git ls-files '*packages.lock.json')" ]; then
+            dotnet restore --locked-mode
+          else
+            echo "::warning::No packages.lock.json committed yet - running unlocked restore."
+            dotnet restore
+          fi
+
+      - name: Check for vulnerable packages (incl. transitive)
+        run: |
+          dotnet list package --vulnerable --include-transitive 2>&1 | tee vulnerable.txt
+          if grep -qiE '(critical|high|moderate|low)\s*$|has the following vulnerable packages' vulnerable.txt; then
+            echo "::error::Vulnerable NuGet packages found (see log above)"
+            exit 1
+          fi
+
+      - name: Report deprecated packages (informational)
+        run: dotnet list package --deprecated || true
+
+  # ---------------------------------------------------------------------------
+  # Single required check for branch protection
+  # ---------------------------------------------------------------------------
+  ci-passed:
+    name: CI passed
+    if: always()
+    needs: [style, build-test, security]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify all jobs succeeded
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}" == "true" ]]; then
+            echo "::error::At least one CI job failed."
+            exit 1
+          fi
+          echo "All CI jobs succeeded."

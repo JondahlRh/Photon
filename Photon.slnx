@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Photon.App/Photon.App.csproj" />
+    <Project Path="src/Photon.Core/Photon.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Photon.Core.Tests/Photon.Core.Tests.csproj" />
+  </Folder>
+</Solution>

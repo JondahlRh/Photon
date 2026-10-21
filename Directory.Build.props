@@ -1,0 +1,36 @@
+<Project>
+  <!--
+    Shared build settings for all projects in Project Photon.
+    Enforces the style guide rules directly in the compiler.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- DoD: "compiles without warnings" -> warnings fail the build -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+    <!-- Analyze style rules from .editorconfig during build -->
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+
+    <!-- XML docs for public APIs (missing docs = CS1591 warning) -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- Security: check all (incl. transitive) packages for known vulnerabilities -->
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
+    <NuGetAuditLevel>low</NuGetAuditLevel>
+
+    <!-- Reproducible restores (required for "dotnet restore locked-mode" in CI) -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+
+  <!-- Test projects: no XML doc requirement -->
+  <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('.Tests'))">
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,140 @@
+# -----------------------------------------------------------------------------
+# Manual release for Project Photon
+# Triggered via "Actions" tab -> "Release" -> "Run workflow".
+# Builds self-contained single-file executables and publishes a GitHub Release.
+# -----------------------------------------------------------------------------
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version number without 'v' (e.g. 1.0.0 or 0.3.0-sprint3)"
+        required: true
+        type: string
+      prerelease:
+        description: "Mark as pre-release"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  APP_PROJECT: src/Photon.App/Photon.App.csproj
+
+jobs:
+  # Releases are only allowed from main (stable sprint state)
+  guard:
+    name: Check preconditions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure release runs on main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Releases may only be created from 'main' (current: ${{ github.ref_name }})."
+          exit 1
+
+      - name: Validate version format
+        run: |
+          if ! [[ "${{ inputs.version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Invalid version '${{ inputs.version }}'. Expected SemVer, e.g. 1.2.0"
+            exit 1
+          fi
+
+  test:
+    name: Build & Test
+    needs: guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+      - name: Restore
+        shell: bash
+        run: |
+          if [ -n "$(git ls-files '*packages.lock.json')" ]; then
+            dotnet restore --locked-mode
+          else
+            echo "::warning::No packages.lock.json committed yet - running unlocked restore."
+            dotnet restore
+          fi
+      - run: dotnet build --no-restore -c Release -p:ContinuousIntegrationBuild=true
+      - run: dotnet test --no-build -c Release
+
+  publish:
+    name: Publish ${{ matrix.rid }}
+    needs: test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - rid: win-x64
+            os: windows-latest
+          - rid: linux-x64
+            os: ubuntu-latest
+          # macOS runners cost 10x minutes on private repos - enable if needed
+          # - rid: osx-arm64
+          #   os: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Publish self-contained single file
+        shell: bash
+        run: >
+          dotnet publish "$APP_PROJECT"
+          -c Release
+          -r ${{ matrix.rid }}
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:Version=${{ inputs.version }}
+          -p:ContinuousIntegrationBuild=true
+          -o publish/${{ matrix.rid }}
+
+      - name: Package (zip)
+        shell: bash
+        run: |
+          cd publish/${{ matrix.rid }}
+          7z a "../../Photon-${{ inputs.version }}-${{ matrix.rid }}.zip" . > /dev/null
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: photon-${{ matrix.rid }}
+          path: Photon-${{ inputs.version }}-${{ matrix.rid }}.zip
+          retention-days: 30
+
+  release:
+    name: Create GitHub Release
+    needs: publish
+    runs-on: ubuntu-latest
+    # Optional approval gate: create environment "release" with required reviewers
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create release with assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          flags=""
+          if [[ "${{ inputs.prerelease }}" == "true" ]]; then flags="--prerelease"; fi
+          gh release create "v${{ inputs.version }}" dist/*.zip \
+            --target "${{ github.sha }}" \
+            --title "Photon v${{ inputs.version }}" \
+            --generate-notes $flags

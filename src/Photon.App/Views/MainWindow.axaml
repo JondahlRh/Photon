@@ -1,0 +1,10 @@
+<Window
+  xmlns="https://github.com/avaloniaui"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  x:Class="Photon.App.Views.MainWindow"
+  Title="Photon"
+  Width="1280"
+  Height="720"
+>
+  <TextBlock Text="Photon Raytracer" HorizontalAlignment="Center" VerticalAlignment="Center" />
+</Window>

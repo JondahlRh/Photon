@@ -1,0 +1,80 @@
+# EditorConfig for Project Photon
+# Formatting is owned by CSharpier; this file enforces naming and language rules
+# from the style guide. Rules with severity "warning" fail the build (warnings = errors).
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{csproj,props,targets,slnx,xml,axaml,json,yml,yaml}]
+indent_size = 2
+
+[*.cs]
+# --- Language rules -----------------------------------------------------------
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_var_for_built_in_types = false:none
+dotnet_style_qualification_for_field = false:warning
+dotnet_style_qualification_for_property = false:warning
+dotnet_style_qualification_for_method = false:warning
+
+# --- Naming conventions -------------------------------------------------------
+# Interfaces: IPascalCase
+dotnet_naming_rule.interfaces_should_start_with_i.severity = warning
+dotnet_naming_rule.interfaces_should_start_with_i.symbols = interface_symbols
+dotnet_naming_rule.interfaces_should_start_with_i.style = i_pascal_case
+dotnet_naming_symbols.interface_symbols.applicable_kinds = interface
+dotnet_naming_style.i_pascal_case.required_prefix = I
+dotnet_naming_style.i_pascal_case.capitalization = pascal_case
+
+# Types, methods, properties, events: PascalCase
+dotnet_naming_rule.types_and_members_pascal.severity = warning
+dotnet_naming_rule.types_and_members_pascal.symbols = types_and_members
+dotnet_naming_rule.types_and_members_pascal.style = pascal_case
+dotnet_naming_symbols.types_and_members.applicable_kinds = class, struct, enum, delegate, method, property, event
+dotnet_naming_style.pascal_case.capitalization = pascal_case
+
+# Constants and public fields: PascalCase
+dotnet_naming_rule.constants_pascal.severity = warning
+dotnet_naming_rule.constants_pascal.symbols = constant_fields
+dotnet_naming_rule.constants_pascal.style = pascal_case
+dotnet_naming_symbols.constant_fields.applicable_kinds = field
+dotnet_naming_symbols.constant_fields.required_modifiers = const
+
+dotnet_naming_rule.public_fields_pascal.severity = warning
+dotnet_naming_rule.public_fields_pascal.symbols = public_fields
+dotnet_naming_rule.public_fields_pascal.style = pascal_case
+dotnet_naming_symbols.public_fields.applicable_kinds = field
+dotnet_naming_symbols.public_fields.applicable_accessibilities = public, internal
+
+# Private/protected instance fields: _camelCase
+dotnet_naming_rule.private_fields_underscore.severity = warning
+dotnet_naming_rule.private_fields_underscore.symbols = private_fields
+dotnet_naming_rule.private_fields_underscore.style = underscore_camel_case
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private, protected, private_protected
+dotnet_naming_style.underscore_camel_case.required_prefix = _
+dotnet_naming_style.underscore_camel_case.capitalization = camel_case
+
+# Parameters and locals: camelCase
+dotnet_naming_rule.parameters_camel.severity = warning
+dotnet_naming_rule.parameters_camel.symbols = parameters_and_locals
+dotnet_naming_rule.parameters_camel.style = camel_case
+dotnet_naming_symbols.parameters_and_locals.applicable_kinds = parameter, local
+dotnet_naming_style.camel_case.capitalization = camel_case
+
+# IDE1006 (naming) must be reported during build
+dotnet_diagnostic.IDE1006.severity = warning
+
+# --- Analyzer tuning -----------------------------------------------------------
+# Public types are fine (Avalonia views, xUnit test classes)
+dotnet_diagnostic.CA1515.severity = none
+
+[tests/**.cs]
+# Test method names may use underscores (Method_Scenario_Result)
+dotnet_diagnostic.CA1707.severity = none
