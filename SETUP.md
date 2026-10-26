@@ -11,7 +11,7 @@
 | `global.json` | Fixiert das .NET-10-SDK für alle (lokal und CI) |
 | `.config/dotnet-tools.json` | Lokale Tools: CSharpier und ReportGenerator in fester Version |
 | `scripts/check-headers.sh` | Prüft den Pflicht-Datei-Header (Author / AI Assistance) |
-| `scripts/check-architecture.sh` | Prüft, dass `Photon.Core` keine UI-/OpenGL-Abhängigkeiten hat |
+| `scripts/check-architecture.sh` | Prüft, dass `Photon.Core` und `Photon.Application` keine UI-/Grafik-Abhängigkeiten haben und `Photon.Core` nicht von höheren Schichten abhängt |
 | `.gitattributes`, `.csharpierrc.json` | Aus dem Style Guide übernommen |
 
 ## Erwartete Projektstruktur
