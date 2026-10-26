@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Application layer: view models, services and platform interfaces.
+    Must stay free of any UI or graphics framework (checked in CI).
+  -->
+  <PropertyGroup>
+    <RootNamespace>Photon.Application</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Photon.Application.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Photon.Core\Photon.Core.csproj" />
+  </ItemGroup>
+</Project>

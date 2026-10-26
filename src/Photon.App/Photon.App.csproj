@@ -18,6 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Photon.Application\Photon.Application.csproj" />
     <ProjectReference Include="..\Photon.Core\Photon.Core.csproj" />
   </ItemGroup>
 </Project>
