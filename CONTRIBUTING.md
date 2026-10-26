@@ -157,7 +157,7 @@ Weiter mit der nächsten Aufgabe ab Schritt 1.
 
 **Als Reviewer** prüfst du, was die CI nicht prüfen kann:
 
-- Ist die Lösung verständlich und an der richtigen Stelle (2-Schichten-Architektur)?
+- Ist die Lösung verständlich und in der richtigen Schicht (siehe Architecture Notebook im Wiki)?
 - Sind die Namen sprechend und die öffentlichen APIs dokumentiert?
 - Werden Fließkommazahlen mit Epsilon verglichen statt mit `==`?
 - Starten Sekundärstrahlen mit Epsilon-Versatz (Ray Acne)?
@@ -220,7 +220,7 @@ dotnet add src/Photon.App package <Paketname>
 dotnet restore
 ```
 
-Die geänderten `packages.lock.json`-Dateien **immer mitcommitten**. Neue Pakete in `Photon.Core` vorher im Team abstimmen; UI- und Grafik-Bibliotheken sind dort verboten.
+Die geänderten `packages.lock.json`-Dateien **immer mitcommitten**. Neue Pakete in `Photon.Core` und `Photon.Application` vorher im Team abstimmen; UI- und Grafik-Bibliotheken sind dort verboten.
 
 **Dependabot-PRs** (automatische Paket-Updates) werden wie normale PRs behandelt: CI abwarten, kurz die Release Notes ansehen, approven, mergen.
 
