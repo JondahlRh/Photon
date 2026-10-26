@@ -10,8 +10,9 @@ updates:
       day: "monday"
     open-pull-requests-limit: 5
     groups:
+      # SkiaSharp is updated together with Avalonia, which depends on it
       avalonia:
-        patterns: ["Avalonia*"]
+        patterns: ["Avalonia*", "SkiaSharp*"]
       opentk:
         patterns: ["OpenTK*"]
       test-tooling:

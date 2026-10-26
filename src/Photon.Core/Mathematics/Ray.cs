@@ -4,9 +4,8 @@
 // -----------------------------------------------------------------------------
 
 using System.Numerics;
-using Photon.Core.Mathematics;
 
-namespace Photon.Core.Rendering;
+namespace Photon.Core.Mathematics;
 
 /// <summary>
 /// Represents a ray in world space with an origin and a normalized direction.
