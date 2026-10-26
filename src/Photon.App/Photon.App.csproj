@@ -6,8 +6,6 @@
     <OutputType>WinExe</OutputType>
     <RootNamespace>Photon.App</RootNamespace>
     <AssemblyName>Photon</AssemblyName>
-    <!-- XML docs are only mandatory for the Core API -->
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
