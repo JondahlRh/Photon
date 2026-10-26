@@ -13,6 +13,7 @@
 | `scripts/check-headers.sh` | Prüft den Pflicht-Datei-Header (Author / AI Assistance) |
 | `scripts/check-architecture.sh` | Prüft, dass `Photon.Core` und `Photon.Application` keine UI-/Grafik-Abhängigkeiten haben und `Photon.Core` nicht von höheren Schichten abhängt |
 | `.gitattributes`, `.csharpierrc.json` | Aus dem Style Guide übernommen |
+| `stylecop.json` | StyleCop-Einstellung: XML-Kommentare auch für private Elemente (Projektanforderung) |
 
 ## Erwartete Projektstruktur
 

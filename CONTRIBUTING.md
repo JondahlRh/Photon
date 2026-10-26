@@ -204,7 +204,8 @@ Bitte **kein `git rebase`** auf bereits gepushten Branches und **kein `git push 
 | `Missing or incomplete file header` | Header fehlt oder enthält Platzhalter `[...]` | Header am Dateianfang ergänzen |
 | `IDE1006: Naming rule violation` | Namenskonvention verletzt, z. B. privates Feld ohne `_` | Umbenennen gemäß Style Guide |
 | `IDE0161: Convert to file-scoped namespace` | `namespace X { ... }` statt `namespace X;` | Auf File-scoped Namespace umstellen |
-| `CS1591: Missing XML comment` | Öffentliches Element in `Photon.Core` ohne Doku | `/// <summary>` ergänzen |
+| `CS1591: Missing XML comment` | Öffentliches Element ohne XML-Kommentar | `/// <summary>` ergänzen |
+| `SA1600: Elements should be documented` | Element ohne XML-Kommentar, auch private Felder und Methoden | `/// <summary>` ergänzen, bei Overrides `/// <inheritdoc/>` |
 | `CS8602: Dereference of a possibly null reference` | Möglicher `null`-Zugriff | Null prüfen oder Typ korrekt als `Type?` markieren |
 | `must not depend on UI/graphics libraries or higher layers` | Avalonia, OpenTK oder SkiaSharp in `Photon.Core`/`Photon.Application` verwendet, oder `Photon.Core` greift auf eine höhere Schicht zu | Code in die passende Schicht verschieben (siehe Architecture Notebook) |
 | `Vulnerable NuGet packages found` | Paket mit bekannter Sicherheitslücke | Paket aktualisieren (Dependabot-PR prüfen) |
