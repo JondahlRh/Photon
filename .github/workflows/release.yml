@@ -50,8 +50,8 @@ jobs:
     needs: guard
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
       - name: Restore
@@ -82,8 +82,8 @@ jobs:
           # - rid: osx-arm64
           #   os: macos-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
 
@@ -106,7 +106,7 @@ jobs:
           cd publish/${{ matrix.rid }}
           7z a "../../Photon-${{ inputs.version }}-${{ matrix.rid }}.zip" . > /dev/null
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: photon-${{ matrix.rid }}
           path: Photon-${{ inputs.version }}-${{ matrix.rid }}.zip
@@ -121,9 +121,9 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
