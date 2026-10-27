@@ -1,10 +1,11 @@
 // -----------------------------------------------------------------------------
-// Author:        XISander
-// AI Assistance: Claude for project skeleton
+// Author:        XISander, BrackyDayn
+// AI Assistance: Claude for project skeleton, ChatGpt for MainWindow
 // -----------------------------------------------------------------------------
 
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Photon.Application.ViewModels;
 
 namespace Photon.App.Views;
 
@@ -14,10 +15,19 @@ namespace Photon.App.Views;
 public partial class MainWindow : Window
 {
     /// <summary>
-    /// Initializes a new instance of the <see cref="MainWindow"/> class.
+    /// Initializes a new instance of the MainWindow class.
     /// </summary>
     public MainWindow()
     {
         AvaloniaXamlLoader.Load(this);
+
+        var viewModel = new MainWindowViewModel();
+        DataContext = viewModel;
+
+        var preview =
+            this.FindControl<TrianglePreviewControl>("Preview")
+            ?? throw new InvalidOperationException("The triangle preview control was not found.");
+
+        preview.Geometry = viewModel.PreviewTriangle;
     }
 }
