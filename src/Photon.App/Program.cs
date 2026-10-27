@@ -1,6 +1,6 @@
 // -----------------------------------------------------------------------------
 // Author:        XISander, BrackyDayn
-// AI Assistance: Claude for project skeleton; ChatGPT for macOS OpenGL configuration
+// AI Assistance: Claude for project skeleton; ChatGPT for macOS OpenGL configuration and help with understanding OpenGL
 // -----------------------------------------------------------------------------
 
 using Avalonia;
