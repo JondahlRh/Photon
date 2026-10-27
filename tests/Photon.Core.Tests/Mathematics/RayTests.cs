@@ -5,9 +5,8 @@
 
 using System.Numerics;
 using Photon.Core.Mathematics;
-using Photon.Core.Rendering;
 
-namespace Photon.Core.Tests.Rendering;
+namespace Photon.Core.Tests.Mathematics;
 
 public sealed class RayTests
 {

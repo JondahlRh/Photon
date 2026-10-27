@@ -1,13 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    Desktop UI: Avalonia UI with OpenGL preview via OpenTK.
+    Desktop UI: Avalonia UI with OpenGL preview via OpenTK, image export via SkiaSharp.
   -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <RootNamespace>Photon.App</RootNamespace>
     <AssemblyName>Photon</AssemblyName>
-    <!-- XML docs are only mandatory for the Core API -->
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,9 +13,13 @@
     <PackageReference Include="Avalonia.Desktop" Version="12.1.4" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.4" />
     <PackageReference Include="OpenTK" Version="4.9.4" />
+    <!-- Keep in sync with the SkiaSharp version used by Avalonia.Skia -->
+
+    <PackageReference Include="SkiaSharp" Version="3.119.4" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Photon.Application\Photon.Application.csproj" />
     <ProjectReference Include="..\Photon.Core\Photon.Core.csproj" />
   </ItemGroup>
 </Project>

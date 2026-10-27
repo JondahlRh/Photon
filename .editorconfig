@@ -75,6 +75,22 @@ dotnet_diagnostic.IDE1006.severity = warning
 # Public types are fine (Avalonia views, xUnit test classes)
 dotnet_diagnostic.CA1515.severity = none
 
+# StyleCop: only the documentation requirement is enforced (every element,
+# including private ones). Formatting and naming are covered by CSharpier and
+# the rules above, so all other StyleCop categories are switched off.
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.DocumentationRules.severity = none
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.LayoutRules.severity = none
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.MaintainabilityRules.severity = none
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.NamingRules.severity = none
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.OrderingRules.severity = none
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.ReadabilityRules.severity = none
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.SpacingRules.severity = none
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.SpecialRules.severity = none
+# SA1600: elements, SA1601: partial elements, SA1602: enumeration items
+dotnet_diagnostic.SA1600.severity = warning
+dotnet_diagnostic.SA1601.severity = warning
+dotnet_diagnostic.SA1602.severity = warning
+
 [tests/**.cs]
 # Test method names may use underscores (Method_Scenario_Result)
 dotnet_diagnostic.CA1707.severity = none
