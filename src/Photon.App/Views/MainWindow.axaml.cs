@@ -1,6 +1,6 @@
 // -----------------------------------------------------------------------------
 // Author:        XISander, BrackyDayn
-// AI Assistance: Claude for project skeleton, ChatGpt for MainWindow
+// AI Assistance: Claude for project skeleton, ChatGpt Codex for help with understanding.
 // -----------------------------------------------------------------------------
 
 using Avalonia.Controls;

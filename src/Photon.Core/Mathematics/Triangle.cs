@@ -1,6 +1,6 @@
 // -----------------------------------------------------------------------------
 // Author:        BrackyDayn
-// AI Assistance: -
+// AI Assistance: ChatGPT Codex for summary.
 // -----------------------------------------------------------------------------
 
 using System.Numerics;

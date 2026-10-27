@@ -1,6 +1,6 @@
 // -----------------------------------------------------------------------------
 // Author:        BrackyDayn
-// AI Assistance: ChatGpt for help with OnOpenGlInit and summary
+// AI Assistance: ChatGpt Codex for help with understanding OpenGL basics and summary
 // -----------------------------------------------------------------------------
 using System;
 using Avalonia.Controls;
