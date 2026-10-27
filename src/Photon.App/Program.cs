@@ -1,6 +1,6 @@
 // -----------------------------------------------------------------------------
-// Author:        XISander
-// AI Assistance: Claude for project skeleton
+// Author:        XISander, BrackyDayn
+// AI Assistance: Claude for project skeleton; ChatGPT for macOS OpenGL configuration
 // -----------------------------------------------------------------------------
 
 using Avalonia;
@@ -23,11 +23,24 @@ internal static class Program
     }
 
     /// <summary>
-    /// Configures the Avalonia application. Also used by the visual designer.
+    /// Configures the Avalonia application and selects OpenGL on macOS.
+    /// Also used by the visual designer.
     /// </summary>
     /// <returns>The configured application builder.</returns>
     public static AppBuilder BuildAvaloniaApp()
     {
-        return AppBuilder.Configure<App>().UsePlatformDetect().LogToTrace();
+        var builder = AppBuilder.Configure<App>().UsePlatformDetect();
+
+        if (OperatingSystem.IsMacOS())
+        {
+            builder.With(
+                new AvaloniaNativePlatformOptions
+                {
+                    RenderingMode = new[] { AvaloniaNativeRenderingMode.OpenGl },
+                }
+            );
+        }
+
+        return builder.LogToTrace();
     }
 }
