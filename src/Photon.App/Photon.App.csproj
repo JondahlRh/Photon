@@ -14,7 +14,8 @@
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.4" />
     <PackageReference Include="OpenTK" Version="4.9.4" />
     <!-- Keep in sync with the SkiaSharp version used by Avalonia.Skia -->
-    <PackageReference Include="SkiaSharp" Version="4.153.1" />
+
+    <PackageReference Include="SkiaSharp" Version="3.119.4" />
   </ItemGroup>
 
   <ItemGroup>
