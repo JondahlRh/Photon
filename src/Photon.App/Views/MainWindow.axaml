@@ -1,4 +1,5 @@
 <Window
+  xmlns:views="clr-namespace:Photon.App.Views"
   xmlns="https://github.com/avaloniaui"
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
   x:Class="Photon.App.Views.MainWindow"
@@ -6,5 +7,15 @@
   Width="1280"
   Height="720"
 >
-  <TextBlock Text="Photon Raytracer" HorizontalAlignment="Center" VerticalAlignment="Center" />
+  <Grid Margin="16" ColumnDefinitions="*,220" ColumnSpacing="16">
+    <Border Background="#0e3361">
+      <views:TrianglePreviewControl x:Name="Preview" />
+    </Border>
+    <StackPanel Grid.Column="1" Spacing="12">
+      <Button Content="Render Image" HorizontalAlignment="Stretch" />
+      <Button Content="Add Light Source" HorizontalAlignment="Stretch" />
+      <Button Content="Import Scene" HorizontalAlignment="Stretch" />
+      <Button Content="Export Image" HorizontalAlignment="Stretch" />
+    </StackPanel>
+  </Grid>
 </Window>
