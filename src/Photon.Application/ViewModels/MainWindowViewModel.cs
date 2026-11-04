@@ -10,7 +10,7 @@ using Photon.Core.Mathematics;
 namespace Photon.Application.ViewModels;
 
 /// <summary>
-/// Provides data for the main window.
+/// Provides data for the main window
 /// </summary>
 public sealed partial class MainWindowViewModel : ObservableObject
 {
@@ -24,77 +24,71 @@ public sealed partial class MainWindowViewModel : ObservableObject
             new Vector3(0f, 0.6f, 0f)
         );
 
-    /// <summary>Camera position X coordinate.</summary>
+    /// <summary>Camera position X</summary>
     [ObservableProperty]
     private float _cameraPosX = 0f;
 
-    /// <summary>Camera position Y coordinate.</summary>
+    /// <summary>Camera position Y</summary>
     [ObservableProperty]
     private float _cameraPosY = 2f;
 
-    /// <summary>Camera position Z coordinate.</summary>
+    /// <summary>Camera position Z</summary>
     [ObservableProperty]
     private float _cameraPosZ = 5f;
 
-    /// <summary>Target position X coordinate.</summary>
+    /// <summary>Target position X</summary>
     [ObservableProperty]
     private float _targetPosX = 0f;
 
-    /// <summary>Target position Y coordinate.</summary>
+    /// <summary>Target position Y</summary>
     [ObservableProperty]
     private float _targetPosY = 0f;
 
-    /// <summary>Target position Z coordinate.</summary>
+    /// <summary>Target position Z</summary>
     [ObservableProperty]
     private float _targetPosZ = 0f;
 
-    /// <summary>Up vector X coordinate.</summary>
+    /// <summary>Up vector X</summary>
     [ObservableProperty]
     private float _upPosX = 0f;
 
-    /// <summary>Up vector Y coordinate.</summary>
+    /// <summary>Up vector Y</summary>
     [ObservableProperty]
     private float _upPosY = 1f;
 
-    /// <summary>Up vector Z coordinate.</summary>
+    /// <summary>Up vector Z</summary>
     [ObservableProperty]
     private float _upPosZ = 0f;
 
-    /// <summary>Field of view in degrees.</summary>
+    /// <summary>Field of view in degrees</summary>
     [ObservableProperty]
     private float _fieldOfView = 60f;
 
-    /// <summary>Render target width in pixels.</summary>
+    /// <summary>Render target width in pixels</summary>
     [ObservableProperty]
     private int _renderWidth = 1280;
 
-    /// <summary>Render target height in pixels.</summary>
+    /// <summary>Render target height in pixels</summary>
     [ObservableProperty]
     private int _renderHeight = 720;
 
-    /// <summary>Number of samples per pixel.</summary>
+    /// <summary>Number of samples per pixel</summary>
     [ObservableProperty]
     private int _samplesPerPixel = 16;
 
-    /// <summary>Maximum ray recursion depth.</summary>
+    /// <summary>Maximum ray recursion depth</summary>
     [ObservableProperty]
     private int _maxRecursionDepth = 5;
 
-    /// <summary>
-    /// The text shown in the status bar.
-    /// </summary>
+    /// <summary>Status bar text</summary>
     [ObservableProperty]
     private string _statusText = "Ready";
 
-    /// <summary>
-    /// The render progress from 0 to 100.
-    /// </summary>
+    /// <summary>Render Progress</summary>
     [ObservableProperty]
     private double _progressPercent;
 
-    /// <summary>
-    /// Starts the render. For now this only updates the status.
-    /// </summary>
+    /// <summary>Starts the rendering process</summary>
     [RelayCommand]
     private void StartRender()
     {
