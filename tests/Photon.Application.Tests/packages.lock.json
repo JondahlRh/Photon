@@ -35,6 +35,11 @@
           "xunit.v3.core.mtp-off": "[4.0.2]"
         }
       },
+      "CommunityToolkit.Mvvm": {
+        "type": "Transitive",
+        "resolved": "8.4.2",
+        "contentHash": "WadCzGEc2U+3e20avRLng4qNtt4zoOGWrdUISqJWrHe3/FSnrYjuM5Sb4yQb09LhkBXrrI4Zt3dLKgRMbItsrg=="
+      },
       "Microsoft.Bcl.AsyncInterfaces": {
         "type": "Transitive",
         "resolved": "6.0.0",
@@ -125,6 +130,7 @@
       "photon.application": {
         "type": "Project",
         "dependencies": {
+          "CommunityToolkit.Mvvm": "[8.4.2, )",
           "Photon.Core": "[1.0.0, )"
         }
       },
