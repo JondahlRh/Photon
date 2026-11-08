@@ -1,6 +1,6 @@
 ﻿// -----------------------------------------------------------------------------
 // Author:        Luca Lengl
-// AI Assistance: Claude for test cases
+// AI Assistance: Claude for Information, Bug and Warning
 // -----------------------------------------------------------------------------
 
 using System.Numerics;
