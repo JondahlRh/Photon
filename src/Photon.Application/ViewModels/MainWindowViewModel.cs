@@ -6,7 +6,11 @@ using System.Numerics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Photon.Core.Mathematics;
-
+using System;
+using System.IO;
+using System.Threading.Tasks;
+using Photon.Core.Geometry;
+using Photon.Core.InputOutput;
 namespace Photon.Application.ViewModels;
 
 /// <summary>
@@ -87,6 +91,32 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>Render Progress</summary>
     [ObservableProperty]
     private double _progressPercent;
+
+    /// <summary>
+    /// Path of the model most recently imported successfully.
+    /// </summary>
+    [ObservableProperty]
+    private string _modelPath = string.Empty;
+
+    /// <summary>
+    /// Imports a model without blocking the UI while parsing.
+    /// </summary>
+    /// <param name="path">The selected OBJ file path.</param>
+    /// <returns>The imported model.</returns>
+    public async Task<Model> LoadModelAsync(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        StatusText = "Importing model...";
+
+        Model model = await Task.Run(() => ObjMtlImporter.Load(path));
+
+        ModelPath = path;
+        StatusText =
+            $"Loaded {Path.GetFileName(path)}: {model.Mesh.Triangles.Count} triangles.";
+
+        return model;
+    }
 
     /// <summary>Starts the rendering process</summary>
     [RelayCommand]

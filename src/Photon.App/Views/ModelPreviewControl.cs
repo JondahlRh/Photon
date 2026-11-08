@@ -1,6 +1,6 @@
 // -----------------------------------------------------------------------------
 // Author:        BrackyDayn
-// AI Assistance: ChatGpt Codex for help with understanding OpenGL basics and summary
+// AI Assistance: Generated with AI assistance
 // -----------------------------------------------------------------------------
 using System;
 using Avalonia.Controls;
@@ -8,42 +8,60 @@ using Avalonia.OpenGL;
 using Avalonia.OpenGL.Controls;
 using OpenTK.Graphics.ES30;
 using Photon.App.Platform.OpenGL;
-using Photon.Core.Mathematics;
+using Photon.Core.Geometry;
 
 namespace Photon.App.Views;
 
 /// <summary>
-/// Displays a triangle using OpenGL inside an Avalonia control.
+/// Displays a model using OpenGL inside an Avalonia control.
 /// </summary>
-public sealed class TrianglePreviewControl : OpenGlControlBase
+public sealed class ModelPreviewControl : OpenGlControlBase
 {
     /// <summary>
-    /// Renderer responsible for drawing the triangle.
+    /// Renderer responsible for drawing the model.
     /// </summary>
     private TriangleRenderer? _renderer;
 
     /// <summary>
-    /// Gets or sets the triangle displayed by the preview.
+    /// The model currently assigned to the preview.
     /// </summary>
-    public Triangle Geometry { get; set; }
+    private Model _model;
+
+    /// <summary>
+    /// Whether the model needs uploading during the next render callback.
+    /// </summary>
+    private bool _modelNeedsUpload = true;
+
+    /// <summary>
+    /// Gets or sets the displayed model. Assign this property on the UI thread.
+    /// </summary>
+    public Model Geometry
+    {
+        get { return _model; }
+        set
+        {
+            _model = value;
+            _modelNeedsUpload = true;
+            RequestNextFrameRendering();
+        }
+    }
 
     /// <inheritdoc/>
     protected override void OnOpenGlInit(GlInterface gl)
     {
-        // Load OpenGL functions using Avalonia's context.
         GL.LoadBindings(new AvaloniaGlBinding(gl));
 
         bool isOpenGlEs = GlVersion.Type == GlProfileType.OpenGLES;
 
-        // The demo requires OpenGL ES 3.0 or desktop OpenGL 3.2+.
         if (GlVersion.Major < 3 || (!isOpenGlEs && GlVersion.Major == 3 && GlVersion.Minor < 2))
         {
             throw new NotSupportedException($"Unsupported OpenGL version: {GlVersion}");
         }
 
         _renderer = new TriangleRenderer();
+        _renderer.Initialize(isOpenGlEs);
 
-        _renderer.Initialize(Geometry, isOpenGlEs);
+        _modelNeedsUpload = true;
     }
 
     /// <inheritdoc/>
@@ -52,6 +70,13 @@ public sealed class TrianglePreviewControl : OpenGlControlBase
         if (_renderer is null)
         {
             return;
+        }
+
+        // Upload only while Avalonia has made the OpenGL context current.
+        if (_modelNeedsUpload)
+        {
+            _renderer.UploadModel(_model);
+            _modelNeedsUpload = false;
         }
 
         // Convert logical Avalonia dimensions to physical pixels.
@@ -68,12 +93,14 @@ public sealed class TrianglePreviewControl : OpenGlControlBase
     {
         _renderer?.Deinitialize();
         _renderer = null;
+        _modelNeedsUpload = true;
     }
 
     /// <inheritdoc/>
     protected override void OnOpenGlLost()
     {
-        // GPU resources are lost together with the context.
+        // GPU resources are already invalid after the context is lost.
         _renderer = null;
+        _modelNeedsUpload = true;
     }
 }
