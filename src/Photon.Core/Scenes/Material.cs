@@ -1,0 +1,3 @@
+﻿namespace Photon.Core.Scenes;
+
+public class Material { }
