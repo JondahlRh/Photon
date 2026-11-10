@@ -213,7 +213,7 @@ internal sealed class TriangleRenderer
         }
 
         Matrix4x4 view = Matrix4x4.CreateLookAt(
-            new Vector3(3.0f, 2.0f, 4.0f),
+            new Vector3(3.0f, 3.0f, -3.0f),
             Vector3.Zero,
             Vector3.UnitY
         );
