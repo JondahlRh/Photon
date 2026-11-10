@@ -1,11 +1,11 @@
 // -----------------------------------------------------------------------------
 // Author:        BrackyDayn
-// AI Assistance: Generated with AI assistance
+// AI Assistance: ChatGPT Codex for adapting importer tests to the scene model
 // -----------------------------------------------------------------------------
 using System.Globalization;
 using System.Numerics;
-using Photon.Core.Geometry;
 using Photon.Core.InputOutput;
+using Photon.Core.Scenes;
 
 namespace Photon.Core.Tests.InputOutput;
 
@@ -72,19 +72,14 @@ public sealed class ObjMtlImporterTests : IDisposable
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
             Model model = ObjMtlImporter.Load(path);
 
-            Assert.Equal(3, model.Mesh.Triangles.Count);
-            Assert.Equal(3, model.Materials.Count);
-            Assert.Collection(
-                model.MaterialIndices,
-                index => Assert.Equal(0, index),
-                index => Assert.Equal(1, index),
-                index => Assert.Equal(2, index)
-            );
-            Assert.Equal(new Vector3(0.8f), model.Materials[0].DiffuseColor);
-            Assert.Equal("Red", model.Materials[1].Name);
-            Assert.Equal(new Vector3(1f, 0.2f, 0.2f), model.Materials[1].DiffuseColor);
-            Assert.Equal("Green", model.Materials[2].Name);
-            Assert.Equal(new Vector3(0.2f, 1f, 0.2f), model.Materials[2].DiffuseColor);
+            Assert.Equal(3, model.TriangleCount);
+            Assert.Equal(3, model.Meshes.Count);
+            Assert.All(model.Meshes, mesh => Assert.Single(mesh.Triangles));
+            Assert.Equal(new Vector3(0.8f), model.Meshes[0].Material.Diffuse);
+            Assert.Equal("Red", model.Meshes[1].Material.Name);
+            Assert.Equal(new Vector3(1f, 0.2f, 0.2f), model.Meshes[1].Material.Diffuse);
+            Assert.Equal("Green", model.Meshes[2].Material.Name);
+            Assert.Equal(new Vector3(0.2f, 1f, 0.2f), model.Meshes[2].Material.Diffuse);
         }
         finally
         {
@@ -113,9 +108,11 @@ public sealed class ObjMtlImporterTests : IDisposable
 
         Model model = ObjMtlImporter.Load(path);
 
-        Assert.Equal(2, model.Materials.Count);
-        int index = Assert.Single(model.MaterialIndices);
-        Assert.Equal(new Vector3(1f, 0f, 0f), model.Materials[index].DiffuseColor);
+        Mesh mesh = Assert.Single(model.Meshes);
+
+        Assert.Single(mesh.Triangles);
+        Assert.Equal("Red", mesh.Material.Name);
+        Assert.Equal(new Vector3(1f, 0f, 0f), mesh.Material.Diffuse);
     }
 
     /// <summary>
@@ -139,15 +136,13 @@ public sealed class ObjMtlImporterTests : IDisposable
 
         Model model = ObjMtlImporter.Load(path);
 
-        Assert.Equal(2, model.Mesh.Triangles.Count);
-        Assert.All(
-            model.MaterialIndices,
-            index => Assert.Equal(new Vector3(0.8f), model.Materials[index].DiffuseColor)
-        );
+        Assert.Equal(2, model.TriangleCount);
+        Assert.Equal(2, model.Meshes.Count);
+        Assert.All(model.Meshes, mesh => Assert.Equal(new Vector3(0.8f), mesh.Material.Diffuse));
     }
 
     /// <summary>
-    /// Checks multiple libraries and redefinitions without changing existing face indices.
+    /// Checks that material redefinitions apply to all faces assigned to that material.
     /// </summary>
     [Fact]
     public void LoadUsesTheLatestMaterialDefinition()
@@ -170,13 +165,10 @@ public sealed class ObjMtlImporterTests : IDisposable
 
         Model model = ObjMtlImporter.Load(path);
 
-        Assert.Equal(2, model.Materials.Count);
-        Assert.Collection(
-            model.MaterialIndices,
-            index => Assert.Equal(1, index),
-            index => Assert.Equal(1, index)
-        );
-        Assert.Equal(new Vector3(0f, 1f, 0f), model.Materials[1].DiffuseColor);
+        Mesh mesh = Assert.Single(model.Meshes);
+
+        Assert.Equal(2, mesh.Triangles.Count);
+        Assert.Equal(new Vector3(0f, 1f, 0f), mesh.Material.Diffuse);
     }
 
     /// <summary>

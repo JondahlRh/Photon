@@ -8,7 +8,7 @@ using Avalonia.OpenGL;
 using Avalonia.OpenGL.Controls;
 using OpenTK.Graphics.ES30;
 using Photon.App.Platform.OpenGL;
-using Photon.Core.Geometry;
+using Photon.Core.Scenes;
 
 namespace Photon.App.Views;
 
@@ -25,7 +25,7 @@ public sealed class ModelPreviewControl : OpenGlControlBase
     /// <summary>
     /// The model currently assigned to the preview.
     /// </summary>
-    private Model _model;
+    private Model _model = new Model(Array.Empty<Mesh>());
 
     /// <summary>
     /// Whether the model needs uploading during the next render callback.
@@ -40,6 +40,7 @@ public sealed class ModelPreviewControl : OpenGlControlBase
         get { return _model; }
         set
         {
+            ArgumentNullException.ThrowIfNull(value);
             _model = value;
             _modelNeedsUpload = true;
             RequestNextFrameRendering();

@@ -32,14 +32,14 @@
         <Button Content="Show Result" />
         <Button Content="Back to Scene" IsVisible="False" />
         <TextBlock
-            Text="{Binding ModelPath}"
-            ToolTip.Tip="{Binding ModelPath}"
-            TextTrimming="CharacterEllipsis"
-            MaxWidth="260"
-            Classes="label"
-            VerticalAlignment="Center"
-            Margin="12,0,0,0"
-          />
+          Text="{Binding ModelPath}"
+          ToolTip.Tip="{Binding ModelPath}"
+          TextTrimming="CharacterEllipsis"
+          MaxWidth="260"
+          Classes="label"
+          VerticalAlignment="Center"
+          Margin="12,0,0,0"
+        />
       </StackPanel>
     </Border>
 

@@ -9,8 +9,7 @@ using System.Numerics;
 using System.Runtime.Versioning;
 using Avalonia.Animation.Easings;
 using OpenTK.Graphics.ES30;
-using Photon.Core.Geometry;
-using Photon.Core.Mathematics;
+using Photon.Core.Scenes;
 
 namespace Photon.App.Platform.OpenGL;
 
@@ -115,36 +114,47 @@ internal sealed class TriangleRenderer
     /// <param name="model">The model to display.</param>
     public void UploadModel(Model model)
     {
-        IReadOnlyList<Triangle> triangles = model.Mesh.Triangles;
+        ArgumentNullException.ThrowIfNull(model);
+
         List<float> vertices = new List<float>();
 
-        for (int i = 0; i < triangles.Count; i++)
+        foreach (Mesh mesh in model.Meshes)
         {
-            Triangle triangle = triangles[i];
+            Vector3 color = mesh.Material.Diffuse;
 
-            Vector3 normal = Vector3.Cross(triangle.B - triangle.A, triangle.C - triangle.A);
-
-            float normalLenght = normal.Length();
-
-            if (!float.IsFinite(normalLenght) || normalLenght <= 0.0f)
+            foreach (MeshTriangle triangle in mesh.Triangles)
             {
-                continue;
+                //!!!!! Shading for wehn parser supports normals and smoothing groups
+                //AppendVertex(vertices, triangle.Vertex0, mesh.Normals[triangle.Index0], color);
+                //AppendVertex(vertices, triangle.Vertex1, mesh.Normals[triangle.Index1], color);
+                //AppendVertex(vertices, triangle.Vertex2, mesh.Normals[triangle.Index2], color);
+                
+                // Temporary flat shading for the demo.
+                Vector3 normal = Vector3.Cross(
+                    triangle.Vertex1 - triangle.Vertex0,
+                    triangle.Vertex2 - triangle.Vertex0
+                );
+
+                float normalLength = normal.Length();
+
+                if (!float.IsFinite(normalLength) || normalLength <= 0f)
+                {
+                    continue;
+                }
+
+                normal /= normalLength;
+
+                AppendVertex(vertices, triangle.Vertex0, normal, color);
+                AppendVertex(vertices, triangle.Vertex1, normal, color);
+                AppendVertex(vertices, triangle.Vertex2, normal, color);
+
+
             }
-
-            normal /= normalLenght;
-
-            int materialIndex = model.MaterialIndices[i];
-            Vector3 color = model.Materials[materialIndex].DiffuseColor;
-
-            AppendVertex(vertices, triangle.A, normal, color);
-            AppendVertex(vertices, triangle.B, normal, color);
-            AppendVertex(vertices, triangle.C, normal, color);
         }
 
         float[] vertexData = vertices.ToArray();
 
         GL.BindBuffer(BufferTarget.ArrayBuffer, _vbo);
-
         GL.BufferData(
             BufferTarget.ArrayBuffer,
             vertexData.Length * sizeof(float),

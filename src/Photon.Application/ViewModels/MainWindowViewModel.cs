@@ -2,15 +2,16 @@
 // Author:        BrackyDayn, Florian Hipp
 // AI Assistance: ChatGpt for Triangle coordiantes
 // -----------------------------------------------------------------------------
-using System.Numerics;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using Photon.Core.Mathematics;
 using System;
 using System.IO;
+using System.Numerics;
 using System.Threading.Tasks;
-using Photon.Core.Geometry;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Photon.Core.InputOutput;
+using Photon.Core.Mathematics;
+using Photon.Core.Scenes;
+
 namespace Photon.Application.ViewModels;
 
 /// <summary>
@@ -112,8 +113,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Model model = await Task.Run(() => ObjMtlImporter.Load(path));
 
         ModelPath = path;
-        StatusText =
-            $"Loaded {Path.GetFileName(path)}: {model.Mesh.Triangles.Count} triangles.";
+        StatusText = $"Loaded {Path.GetFileName(path)}: {model.TriangleCount} triangles.";
 
         return model;
     }

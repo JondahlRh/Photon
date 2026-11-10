@@ -1,14 +1,13 @@
 // -----------------------------------------------------------------------------
 // Author:        BrackyDayn
-// AI Assistance: Generated with AI assistance
+// AI Assistance: Chatgpt codex for Summary, Expections, and help with merge
 // -----------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Numerics;
-using Photon.Core.Geometry;
-using Photon.Core.Mathematics;
+using Photon.Core.Scenes;
 
 namespace Photon.Core.InputOutput;
 
@@ -40,13 +39,10 @@ public readonly struct ObjMtlImporter
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
         List<Vector3> positions = new List<Vector3>();
-        List<Triangle> triangles = new List<Triangle>();
+        List<(int A, int B, int C)> faces = new List<(int A, int B, int C)>();
         List<int> materialIndices = new List<int>();
 
-        List<Material> materials = new List<Material>
-        {
-            new Material("Default", new Vector3(0.8f, 0.8f, 0.8f)),
-        };
+        List<Material> materials = new List<Material> { Material.Default };
         Dictionary<string, int> materialLookup = new Dictionary<string, int>(
             StringComparer.Ordinal
         );
@@ -115,7 +111,7 @@ public readonly struct ObjMtlImporter
                     int b = ParseVertexIndex(parts[2], positions.Count, location);
                     int c = ParseVertexIndex(parts[3], positions.Count, location);
 
-                    triangles.Add(new Triangle(positions[a], positions[b], positions[c]));
+                    faces.Add((a, b, c));
 
                     materialIndices.Add(currentMaterialIndex);
                     break;
@@ -151,7 +147,7 @@ public readonly struct ObjMtlImporter
                         // A later library can fill this material without changing face indices.
                         currentMaterialIndex = materials.Count;
                         materialLookup.Add(name, currentMaterialIndex);
-                        materials.Add(new Material(name, new Vector3(0.8f, 0.8f, 0.8f)));
+                        materials.Add(CreateMaterial(name, new Vector3(0.8f)));
                     }
 
                     break;
@@ -171,14 +167,37 @@ public readonly struct ObjMtlImporter
             }
         }
 
-        if (triangles.Count == 0)
+        if (faces.Count == 0)
         {
             throw new FormatException($"{path}: No triangular faces were found.");
         }
+        var builder = new ModelBuilder();
 
-        Mesh mesh = new Mesh(triangles);
+        foreach (Vector3 pos in positions)
+        {
+            builder.AddPosition(pos);
+        }
 
-        return new Model(mesh, materials, materialIndices);
+        for (int i = 1; i < materials.Count; i++)
+        {
+            builder.AddMaterial(materials[i]);
+        }
+
+        int activeMaterialIndex = 0;
+
+        for (int i = 0; i < faces.Count; i++)
+        {
+            int materialIndex = materialIndices[i];
+            if (materialIndex != activeMaterialIndex)
+            {
+                builder.UseMaterial(materials[materialIndex].Name);
+                activeMaterialIndex = materialIndex;
+            }
+
+            var face = faces[i];
+            builder.AddTriangle(face.A, face.B, face.C);
+        }
+        return builder.Build();
     }
 
     /// <summary>
@@ -243,11 +262,11 @@ public readonly struct ObjMtlImporter
                 {
                     materialIndex = materials.Count;
                     materialLookup.Add(name, materialIndex);
-                    materials.Add(new Material(name, new Vector3(0.8f, 0.8f, 0.8f)));
+                    materials.Add(CreateMaterial(name, new Vector3(0.8f)));
                 }
                 else
                 {
-                    materials[materialIndex] = new Material(name, new Vector3(0.8f, 0.8f, 0.8f));
+                    materials[materialIndex] = CreateMaterial(name, new Vector3(0.8f));
                 }
             }
             else if (parts[0] == "Kd")
@@ -262,9 +281,24 @@ public readonly struct ObjMtlImporter
                 float blue = ParseCoordinate(parts[3], location);
                 string name = materials[materialIndex].Name;
 
-                materials[materialIndex] = new Material(name, new Vector3(red, green, blue));
+                materials[materialIndex] = CreateMaterial(name, new Vector3(red, green, blue));
             }
         }
+    }
+
+    /// <summary>Creates a material with default shading coefficients.</summary>
+    /// <param name="name">The material name.</param>
+    /// <param name="diffuse">The diffuse RGB color.</param>
+    /// <returns>The scene material.</returns>
+    private static Material CreateMaterial(string name, Vector3 diffuse)
+    {
+        return new Material(
+            name: name,
+            ambient: Material.Default.Ambient,
+            diffuse: diffuse,
+            specular: Material.Default.Specular,
+            specularExponent: Material.Default.SpecularExponent
+        );
     }
 
     /// <summary>
