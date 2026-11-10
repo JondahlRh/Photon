@@ -208,7 +208,6 @@ Bitte **kein `git rebase`** auf bereits gepushten Branches und **kein `git push 
 | `SA1600: Elements should be documented` | Element ohne XML-Kommentar, auch private Felder und Methoden | `/// <summary>` ergänzen, bei Overrides `/// <inheritdoc/>` |
 | `CS8602: Dereference of a possibly null reference` | Möglicher `null`-Zugriff | Null prüfen oder Typ korrekt als `Type?` markieren |
 | `must not depend on UI/graphics libraries or higher layers` | Avalonia, OpenTK oder SkiaSharp in `Photon.Core`/`Photon.Application` verwendet, oder `Photon.Core` greift auf eine höhere Schicht zu | Code in die passende Schicht verschieben (siehe Architecture Notebook) |
-| `Vulnerable NuGet packages found` | Paket mit bekannter Sicherheitslücke | Paket aktualisieren (Dependabot-PR prüfen) |
 | `NU1004` / Lock file out of date | Paket geändert, `packages.lock.json` nicht committet | `dotnet restore` lokal, Lock-Dateien mitcommitten |
 
 ---
@@ -221,8 +220,6 @@ dotnet restore
 ```
 
 Die geänderten `packages.lock.json`-Dateien **immer mitcommitten**. Neue Pakete in `Photon.Core` und `Photon.Application` vorher im Team abstimmen; UI- und Grafik-Bibliotheken sind dort verboten.
-
-**Dependabot-PRs** (automatische Paket-Updates) werden wie normale PRs behandelt: CI abwarten, kurz die Release Notes ansehen, approven, mergen.
 
 ---
 
