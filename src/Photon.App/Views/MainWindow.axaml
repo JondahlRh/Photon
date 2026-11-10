@@ -2,20 +2,161 @@
   xmlns:views="clr-namespace:Photon.App.Views"
   xmlns="https://github.com/avaloniaui"
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:vm="using:Photon.Application.ViewModels"
+  x:DataType="vm:MainWindowViewModel"
   x:Class="Photon.App.Views.MainWindow"
   Title="Photon"
   Width="1280"
   Height="720"
 >
-  <Grid Margin="16" ColumnDefinitions="*,220" ColumnSpacing="16">
-    <Border Background="#0e3361">
-      <views:TrianglePreviewControl x:Name="Preview" />
+  <Window.Styles>
+    <Style Selector="TextBlock.label">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="Gray" />
+    </Style>
+    <Style Selector="TextBlock.heading">
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Margin" Value="0,8,0,0" />
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="MinWidth" Value="0" />
+      <Setter Property="Padding" Value="6,3" />
+    </Style>
+  </Window.Styles>
+
+  <DockPanel>
+    <Border DockPanel.Dock="Top" BorderBrush="Gray" BorderThickness="0,0,0,1" Padding="8">
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="Load Scene" />
+        <Button Content="Save Image" />
+        <Button Content="Show Result" />
+        <Button Content="Back to Scene" IsVisible="False" />
+        <TextBlock Text="scene.json" Classes="label" VerticalAlignment="Center" Margin="12,0,0,0" />
+      </StackPanel>
     </Border>
-    <StackPanel Grid.Column="1" Spacing="12">
-      <Button Content="Render Image" HorizontalAlignment="Stretch" />
-      <Button Content="Add Light Source" HorizontalAlignment="Stretch" />
-      <Button Content="Import Scene" HorizontalAlignment="Stretch" />
-      <Button Content="Export Image" HorizontalAlignment="Stretch" />
-    </StackPanel>
-  </Grid>
+
+    <Border DockPanel.Dock="Bottom" BorderBrush="Gray" BorderThickness="0,1,0,0" Padding="8">
+      <Grid ColumnDefinitions="120, *, Auto" ColumnSpacing="12">
+        <TextBlock Grid.Column="0" Text="{Binding StatusText}" VerticalAlignment="Center" />
+        <ProgressBar
+          Grid.Column="1"
+          Minimum="0"
+          Maximum="100"
+          Value="{Binding ProgressPercent}"
+          VerticalAlignment="Center"
+        />
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+          <Button Content="Cancel" />
+          <Button Content="Start Rendering" Command="{Binding StartRenderCommand}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Border DockPanel.Dock="Right" Width="270" BorderBrush="Gray" BorderThickness="1,0,0,0">
+      <ScrollViewer>
+        <StackPanel Margin="12" Spacing="6">
+          <TextBlock Text="Camera" Classes="heading" Margin="0" />
+          <TextBlock Text="Position (X, Y, Z)" Classes="label" />
+          <Grid ColumnDefinitions="*,*,*" ColumnSpacing="4">
+            <TextBox Grid.Column="0" Text="{Binding CameraPosX}" />
+            <TextBox Grid.Column="1" Text="{Binding CameraPosY}" />
+            <TextBox Grid.Column="2" Text="{Binding CameraPosZ}" />
+          </Grid>
+          <TextBlock Text="Target (X, Y, Z)" Classes="label" />
+          <Grid ColumnDefinitions="*,*,*" ColumnSpacing="4">
+            <TextBox Grid.Column="0" Text="{Binding TargetPosX}" />
+            <TextBox Grid.Column="1" Text="{Binding TargetPosY}" />
+            <TextBox Grid.Column="2" Text="{Binding TargetPosZ}" />
+          </Grid>
+          <TextBlock Text="Up (X, Y, Z)" Classes="label" />
+          <Grid ColumnDefinitions="*,*,*" ColumnSpacing="4">
+            <TextBox Grid.Column="0" Text="{Binding UpPosX}" />
+            <TextBox Grid.Column="1" Text="{Binding UpPosY}" />
+            <TextBox Grid.Column="2" Text="{Binding UpPosZ}" />
+          </Grid>
+          <Grid ColumnDefinitions="*, 70">
+            <TextBlock Text="Field of View" VerticalAlignment="Center" />
+            <TextBox Grid.Column="1" Text="{Binding FieldOfView}" />
+          </Grid>
+
+          <Separator Margin="0,8" />
+
+          <TextBlock Text="Render Quality" Classes="heading" Margin="0" />
+          <TextBlock Text="Resolution (width x height)" Classes="label" />
+          <Grid ColumnDefinitions="*, Auto, *" ColumnSpacing="6">
+            <TextBox Grid.Column="0" Text="{Binding RenderWidth}" />
+            <TextBlock Grid.Column="1" Text="x" VerticalAlignment="Center" />
+            <TextBox Grid.Column="2" Text="{Binding RenderHeight}" />
+          </Grid>
+
+          <Grid ColumnDefinitions="*, 70">
+            <TextBlock Text="Samples per Pixel" VerticalAlignment="Center" />
+            <TextBox Grid.Column="1" Text="{Binding SamplesPerPixel}" />
+          </Grid>
+
+          <Grid ColumnDefinitions="*, 70">
+            <TextBlock Text="Max. Recursion Depth" VerticalAlignment="Center" />
+            <TextBox Grid.Column="1" Text="{Binding MaxRecursionDepth}" />
+          </Grid>
+
+          <Separator Margin="0,8" />
+
+          <TextBlock Text="Lights" Classes="heading" Margin="0" />
+          <TextBlock Text="No lights yet" Classes="label" FontStyle="Italic" IsVisible="False" />
+
+          <Border BorderBrush="Gray" BorderThickness="1" Padding="8">
+            <StackPanel Spacing="6">
+              <TextBlock Text="Light 1" FontWeight="SemiBold" />
+              <TextBlock Text="Position (X, Y, Z)" Classes="label" />
+              <Grid ColumnDefinitions="*,*,*" ColumnSpacing="4">
+                <TextBox Grid.Column="0" Text="3" />
+                <TextBox Grid.Column="1" Text="5" />
+                <TextBox Grid.Column="2" Text="2" />
+              </Grid>
+              <Grid ColumnDefinitions="*, 90">
+                <TextBlock Text="Color (#RRGGBB)" VerticalAlignment="Center" />
+                <TextBox Grid.Column="1" Text="#FFFFFF" />
+              </Grid>
+              <Grid ColumnDefinitions="*, 90">
+                <TextBlock Text="Intensity" VerticalAlignment="Center" />
+                <TextBox Grid.Column="1" Text="1.0" />
+              </Grid>
+              <Button Content="Remove Light" HorizontalAlignment="Left" />
+            </StackPanel>
+          </Border>
+
+          <Button
+            Content="+ Add Light"
+            HorizontalAlignment="Stretch"
+            HorizontalContentAlignment="Center"
+          />
+
+          <TextBlock
+            Text="Example error message"
+            Foreground="Red"
+            TextWrapping="Wrap"
+            IsVisible="False"
+          />
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
+    <Grid Margin="12">
+      <Border Background="#0e3361" BorderBrush="Gray" BorderThickness="1">
+        <views:TrianglePreviewControl x:Name="Preview" />
+      </Border>
+
+      <Border IsVisible="False" Background="White" BorderBrush="Gray" BorderThickness="1">
+        <Grid>
+          <TextBlock
+            Text="[ Render result ]"
+            Foreground="Gray"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+          />
+          <Image Stretch="Uniform" />
+        </Grid>
+      </Border>
+    </Grid>
+  </DockPanel>
 </Window>
