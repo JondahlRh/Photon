@@ -30,7 +30,7 @@ public sealed class Mesh
     /// <summary>
     /// The triangles of the mesh.
     /// </summary>
-    private readonly Triangle[] _triangles;
+    private readonly MeshTriangle[] _triangles;
 
     /// <summary>
     /// Initializes a new mesh and creates its triangles.
@@ -92,14 +92,14 @@ public sealed class Mesh
 
         Material = material;
         Bounds = bounds;
-        _triangles = new Triangle[indices.Length / 3];
+        _triangles = new MeshTriangle[indices.Length / 3];
 
         for (var t = 0; t < _triangles.Length; t++)
         {
             int i0 = CheckIndex(indices[3 * t]);
             int i1 = CheckIndex(indices[(3 * t) + 1]);
             int i2 = CheckIndex(indices[(3 * t) + 2]);
-            _triangles[t] = new Triangle(this, i0, i1, i2);
+            _triangles[t] = new MeshTriangle(this, i0, i1, i2);
         }
     }
 
@@ -116,7 +116,7 @@ public sealed class Mesh
     /// <summary>
     /// Gets the triangles of the mesh.
     /// </summary>
-    public IReadOnlyList<Triangle> Triangles => _triangles;
+    public IReadOnlyList<MeshTriangle> Triangles => _triangles;
 
     /// <summary>
     /// Gets the material of all triangles.

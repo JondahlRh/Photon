@@ -6,17 +6,15 @@
 using System.Numerics;
 using Photon.Core.Mathematics;
 using Photon.Core.Scenes;
-// Photon.Core.Mathematics still holds the old demo triangle used by the preview.
-using Triangle = Photon.Core.Scenes.Triangle;
 
 namespace Photon.Core.Tests.Scenes;
 
-public sealed class TriangleTests
+public sealed class MeshTriangleTests
 {
     [Fact]
     public void RayHitsTriangleAtExpectedDistance()
     {
-        Triangle triangle = CreateFlatTriangle();
+        MeshTriangle triangle = CreateFlatTriangle();
         var ray = new Ray(new Vector3(0.2f, 0.2f, 5f), -Vector3.UnitZ);
 
         bool hit = triangle.Intersect(
@@ -36,7 +34,7 @@ public sealed class TriangleTests
     [Fact]
     public void RayOutsideTriangleMisses()
     {
-        Triangle triangle = CreateFlatTriangle();
+        MeshTriangle triangle = CreateFlatTriangle();
         var ray = new Ray(new Vector3(0.8f, 0.8f, 5f), -Vector3.UnitZ);
 
         Assert.False(triangle.Intersect(ray, FloatComparison.Epsilon, float.MaxValue, out _));
@@ -45,7 +43,7 @@ public sealed class TriangleTests
     [Fact]
     public void TriangleBehindRayMisses()
     {
-        Triangle triangle = CreateFlatTriangle();
+        MeshTriangle triangle = CreateFlatTriangle();
         var ray = new Ray(new Vector3(0.2f, 0.2f, 5f), Vector3.UnitZ);
 
         Assert.False(triangle.Intersect(ray, FloatComparison.Epsilon, float.MaxValue, out _));
@@ -54,7 +52,7 @@ public sealed class TriangleTests
     [Fact]
     public void HitBeyondMaxDistanceIsIgnored()
     {
-        Triangle triangle = CreateFlatTriangle();
+        MeshTriangle triangle = CreateFlatTriangle();
         var ray = new Ray(new Vector3(0.2f, 0.2f, 5f), -Vector3.UnitZ);
 
         Assert.False(triangle.Intersect(ray, FloatComparison.Epsilon, 4f, out _));
@@ -83,13 +81,13 @@ public sealed class TriangleTests
     [Fact]
     public void BoundsContainAllCorners()
     {
-        Triangle triangle = CreateFlatTriangle();
+        MeshTriangle triangle = CreateFlatTriangle();
 
         Assert.Equal(Vector3.Zero, triangle.Bounds.Min);
         Assert.Equal(new Vector3(1f, 1f, 0f), triangle.Bounds.Max);
     }
 
-    private static Triangle CreateFlatTriangle()
+    private static MeshTriangle CreateFlatTriangle()
     {
         var mesh = new Mesh(
             [Vector3.Zero, Vector3.UnitX, Vector3.UnitY],

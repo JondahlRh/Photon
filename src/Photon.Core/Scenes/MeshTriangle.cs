@@ -11,7 +11,7 @@ namespace Photon.Core.Scenes;
 /// <summary>
 /// A triangle of a <see cref="Mesh"/>. It references its corners by index into the mesh arrays.
 /// </summary>
-public sealed class Triangle : IPrimitive
+public sealed class MeshTriangle : IPrimitive
 {
     /// <summary>
     /// The mesh that owns the vertex and normal arrays.
@@ -25,7 +25,7 @@ public sealed class Triangle : IPrimitive
     /// <param name="index0">The index of the first corner.</param>
     /// <param name="index1">The index of the second corner.</param>
     /// <param name="index2">The index of the third corner.</param>
-    internal Triangle(Mesh mesh, int index0, int index1, int index2)
+    internal MeshTriangle(Mesh mesh, int index0, int index1, int index2)
     {
         _mesh = mesh;
         Index0 = index0;
