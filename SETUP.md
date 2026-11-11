@@ -6,7 +6,6 @@
 |---|---|
 | `.github/workflows/ci.yml` | CI bei jedem PR gegen `dev`/`main`: Style, Build, Tests, Coverage, Security |
 | `.github/workflows/release.yml` | Manuelles Release (EXE/ZIP für Windows + Linux) als GitHub Release |
-| `.github/dependabot.yml` | Wöchentliche Update-PRs für NuGet, .NET SDK und Actions (gegen `dev`) |
 | `Directory.Build.props` | Gemeinsame Build-Regeln: Nullable, Warnings = Errors, XML-Docs, NuGet-Audit, Lockfiles |
 | `global.json` | Fixiert das .NET-10-SDK für alle (lokal und CI) |
 | `.config/dotnet-tools.json` | Lokale Tools: CSharpier und ReportGenerator in fester Version |
