@@ -1,6 +1,6 @@
 // -----------------------------------------------------------------------------
 // Author:        BrackyDayn
-// AI Assistance: Chatgpt codex for Summary, Expections, and help with merge
+// AI Assistance: Chatgpt codex for Summary, Expections, and help with String operations
 // -----------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;

@@ -1,6 +1,6 @@
 // -----------------------------------------------------------------------------
 // Author:        BrackyDayn
-// AI Assistance: Generated with AI assistance
+// AI Assistance: ChatGpt Codex for summary and Exeptions, inspiration from https://opentk.net/learn/chapter1/2-hello-triangle.html?tabs=onload-opentk4%2Conrender-opentk4%2Cresize-opentk4
 // -----------------------------------------------------------------------------
 using System;
 using Avalonia.Controls;

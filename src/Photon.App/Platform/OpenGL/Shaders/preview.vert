@@ -1,3 +1,9 @@
+// -----------------------------------------------------------------------------
+// Author:        BrackyDayn
+// AI Assistance: inspiration https://opentk.net/learn/chapter1/8-coordinate-systems.html
+// -----------------------------------------------------------------------------
+
+
 /*
  * Vertex shader for the model preview.
  *

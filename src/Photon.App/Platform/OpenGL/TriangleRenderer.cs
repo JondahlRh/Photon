@@ -1,6 +1,6 @@
 // -----------------------------------------------------------------------------
 // Author:        BrackyDayn
-// AI Assistance: ChatGpt for summary
+// AI Assistance: ChatGpt for summary, exceptions and intigration, 
 // -----------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;

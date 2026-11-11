@@ -1,6 +1,6 @@
 // -----------------------------------------------------------------------------
 // Author:        BrackyDayn, Florian Hipp
-// AI Assistance: ChatGpt for Triangle coordiantes
+// AI Assistance: ChatGpt for Triangle coordiantes, Summary and Exeptions, inspiration from https://docs.avaloniaui.net/docs/how-to/mvvm-how-to
 // -----------------------------------------------------------------------------
 using System;
 using System.IO;

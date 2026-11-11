@@ -1,3 +1,8 @@
+// -----------------------------------------------------------------------------
+// Author:        BrackyDayn
+// AI Assistance: https://learnopengl.com/Lighting/Basic-Lighting
+// -----------------------------------------------------------------------------
+
 in vec3 worldPosition;
 in vec3 worldNormal;
 in vec3 baseColor;
