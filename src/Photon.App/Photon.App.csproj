@@ -24,4 +24,15 @@
     <ProjectReference Include="..\Photon.Application\Photon.Application.csproj" />
     <ProjectReference Include="..\Photon.Core\Photon.Core.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource
+      Include="Platform/OpenGL/Shaders/preview.vert"
+      LogicalName="Photon.App.Shaders.preview.vert"
+    />
+    <EmbeddedResource
+      Include="Platform/OpenGL/Shaders/preview.frag"
+      LogicalName="Photon.App.Shaders.preview.frag"
+    />
+  </ItemGroup>
 </Project>

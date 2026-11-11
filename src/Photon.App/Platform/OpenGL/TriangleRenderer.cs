@@ -1,16 +1,20 @@
 // -----------------------------------------------------------------------------
 // Author:        BrackyDayn
-// AI Assistance: ChatGpt for summary
+// AI Assistance: ChatGpt for summary, exceptions and intigration,
 // -----------------------------------------------------------------------------
 using System;
-using Avalonia.OpenGL;
+using System.Collections.Generic;
+using System.IO;
+using System.Numerics;
+using System.Runtime.Versioning;
+using Avalonia.Animation.Easings;
 using OpenTK.Graphics.ES30;
-using Photon.Core.Mathematics;
+using Photon.Core.Scenes;
 
 namespace Photon.App.Platform.OpenGL;
 
 /// <summary>
-/// Renders a static triangle using OpenGL.
+/// Renders triangle geometry and material colors from a model using OpenGL.
 /// </summary>
 internal sealed class TriangleRenderer
 {
@@ -30,55 +34,166 @@ internal sealed class TriangleRenderer
     private int _shaderProgram;
 
     /// <summary>
-    /// Initializes GPU resources for the triangle.
+    /// Number of floats stored for each vertex: position, normal, and color.
     /// </summary>
-    /// <param name="triangle">The triangle to render.</param>
+    private const int FloatsPerVertex = 9;
+
+    /// <summary>
+    /// Number of vertices currently uploaded to the GPU.
+    /// </summary>
+    private int _vertexCount;
+
+    /// <summary>
+    /// Location of the camera's view-projection uniform.
+    /// </summary>
+    private int _viewProjectionLocation;
+
+    /// <summary>
+    /// Location of the light position uniform.
+    /// </summary>
+    private int _lightPositionLocation;
+
+    /// <summary>
+    /// Initializes GPU resources without loading a model.
+    /// </summary>
     /// <param name="isOpenGlEs">Whether the context uses OpenGL ES.</param>
-    public void Initialize(Triangle triangle, bool isOpenGlEs)
+    public void Initialize(bool isOpenGlEs)
     {
-        float[] vertices =
+        try
         {
-            triangle.A.X,
-            triangle.A.Y,
-            triangle.A.Z,
-            triangle.B.X,
-            triangle.B.Y,
-            triangle.B.Z,
-            triangle.C.X,
-            triangle.C.Y,
-            triangle.C.Z,
-        };
+            _shaderProgram = CreateShaderProgram(isOpenGlEs);
 
-        // Create and bind the vertex array.
-        _vao = GL.GenVertexArray();
-        GL.BindVertexArray(_vao);
+            _viewProjectionLocation = GL.GetUniformLocation(_shaderProgram, "viewProjection");
 
-        // Create and fill the vertex buffer.
-        _vbo = GL.GenBuffer();
-        GL.BindBuffer(BufferTarget.ArrayBuffer, _vbo);
+            _lightPositionLocation = GL.GetUniformLocation(_shaderProgram, "lightPosition");
 
-        GL.BufferData(
-            BufferTarget.ArrayBuffer,
-            vertices.Length * sizeof(float),
-            vertices,
-            BufferUsageHint.StaticDraw
-        );
+            _vao = GL.GenVertexArray();
+            GL.BindVertexArray(_vao);
 
-        // Each vertex contains three floats: X, Y and Z.
-        GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
+            _vbo = GL.GenBuffer();
+            GL.BindBuffer(BufferTarget.ArrayBuffer, _vbo);
 
-        GL.EnableVertexAttribArray(0);
+            int stride = FloatsPerVertex * sizeof(float);
 
-        // Compile shaders and create the shader program.
-        _shaderProgram = CreateShaderProgram(isOpenGlEs);
+            GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, stride, IntPtr.Zero);
+            GL.EnableVertexAttribArray(0);
 
-        // Unbind OpenGL objects.
-        GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
-        GL.BindVertexArray(0);
+            GL.VertexAttribPointer(
+                1,
+                3,
+                VertexAttribPointerType.Float,
+                false,
+                stride,
+                new IntPtr(3 * sizeof(float))
+            );
+            GL.EnableVertexAttribArray(1);
+
+            GL.VertexAttribPointer(
+                2,
+                3,
+                VertexAttribPointerType.Float,
+                false,
+                stride,
+                new IntPtr(6 * sizeof(float))
+            );
+            GL.EnableVertexAttribArray(2);
+
+            GL.BindVertexArray(0);
+            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
+        }
+        catch
+        {
+            Deinitialize();
+            throw;
+        }
     }
 
     /// <summary>
-    /// Renders the triangle into the specified framebuffer.
+    /// Converts a model into vertex data and uploads it to the GPU.
+    /// </summary>
+    /// <param name="model">The model to display.</param>
+    public void UploadModel(Model model)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+
+        List<float> vertices = new List<float>();
+
+        foreach (Mesh mesh in model.Meshes)
+        {
+            Vector3 color = mesh.Material.Diffuse;
+
+            foreach (MeshTriangle triangle in mesh.Triangles)
+            {
+                //!!!!! Shading for wehn parser supports normals and smoothing groups
+                //AppendVertex(vertices, triangle.Vertex0, mesh.Normals[triangle.Index0], color);
+                //AppendVertex(vertices, triangle.Vertex1, mesh.Normals[triangle.Index1], color);
+                //AppendVertex(vertices, triangle.Vertex2, mesh.Normals[triangle.Index2], color);
+
+                // Temporary flat shading for the demo.
+                Vector3 normal = Vector3.Cross(
+                    triangle.Vertex1 - triangle.Vertex0,
+                    triangle.Vertex2 - triangle.Vertex0
+                );
+
+                float normalLength = normal.Length();
+
+                if (!float.IsFinite(normalLength) || normalLength <= 0f)
+                {
+                    continue;
+                }
+
+                normal /= normalLength;
+
+                AppendVertex(vertices, triangle.Vertex0, normal, color);
+                AppendVertex(vertices, triangle.Vertex1, normal, color);
+                AppendVertex(vertices, triangle.Vertex2, normal, color);
+            }
+        }
+
+        float[] vertexData = vertices.ToArray();
+
+        GL.BindBuffer(BufferTarget.ArrayBuffer, _vbo);
+        GL.BufferData(
+            BufferTarget.ArrayBuffer,
+            vertexData.Length * sizeof(float),
+            vertexData,
+            BufferUsageHint.StaticDraw
+        );
+
+        GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
+
+        _vertexCount = vertexData.Length / FloatsPerVertex;
+    }
+
+    /// <summary>
+    /// Appends a vertex's position, normal, and color to the upload data.
+    /// </summary>
+    /// <param name="vertices">The destination vertex data.</param>
+    /// <param name="position">The vertex position.</param>
+    /// <param name="normal">The surface normal.</param>
+    /// <param name="color">The diffuse material color.</param>
+    private static void AppendVertex(
+        List<float> vertices,
+        Vector3 position,
+        Vector3 normal,
+        Vector3 color
+    )
+    {
+        vertices.Add(position.X);
+        vertices.Add(position.Y);
+        vertices.Add(position.Z);
+
+        vertices.Add(normal.X);
+        vertices.Add(normal.Y);
+        vertices.Add(normal.Z);
+
+        vertices.Add(color.X);
+        vertices.Add(color.Y);
+        vertices.Add(color.Z);
+    }
+
+    /// <summary>
+    /// Renders the model into the specified framebuffer.
     /// </summary>
     /// <param name="framebuffer">Avalonia's framebuffer.</param>
     /// <param name="width">Viewport width in physical pixels.</param>
@@ -86,26 +201,74 @@ internal sealed class TriangleRenderer
     public void Render(int framebuffer, int width, int height)
     {
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, framebuffer);
-
         GL.Viewport(0, 0, width, height);
 
-        // Dark background: #111827.
+        GL.Disable(EnableCap.ScissorTest);
+        GL.Disable(EnableCap.Blend);
+        GL.Disable(EnableCap.CullFace);
+
+        GL.Enable(EnableCap.DepthTest);
+        GL.DepthMask(true);
+        GL.DepthFunc(DepthFunction.Less);
+
         GL.ClearColor(17f / 255f, 24f / 255f, 39f / 255f, 1.0f);
+        GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-        GL.Clear(ClearBufferMask.ColorBufferBit);
+        if (_vertexCount == 0)
+        {
+            GL.Disable(EnableCap.DepthTest);
+            return;
+        }
 
-        // Select our shader program.
+        Matrix4x4 view = Matrix4x4.CreateLookAt(
+            new Vector3(3.0f, 3.0f, -3.0f),
+            Vector3.Zero,
+            Vector3.UnitY
+        );
+
+        Matrix4x4 projection = Matrix4x4.CreatePerspectiveFieldOfView(
+            MathF.PI / 3.0f,
+            (float)width / height,
+            0.1f,
+            100.0f
+        );
+
+        // System.Numerics applies the view transform before the projection.
+        Matrix4x4 viewProjection = view * projection;
+
+        float[] matrixValues =
+        {
+            viewProjection.M11,
+            viewProjection.M12,
+            viewProjection.M13,
+            viewProjection.M14,
+            viewProjection.M21,
+            viewProjection.M22,
+            viewProjection.M23,
+            viewProjection.M24,
+            viewProjection.M31,
+            viewProjection.M32,
+            viewProjection.M33,
+            viewProjection.M34,
+            viewProjection.M41,
+            viewProjection.M42,
+            viewProjection.M43,
+            viewProjection.M44,
+        };
+
         GL.UseProgram(_shaderProgram);
 
-        // Select our triangle's vertex data.
+        // OpenGL reads these values as the transpose needed by GLSL's
+        // column-vector multiplication.
+        GL.UniformMatrix4(_viewProjectionLocation, 1, false, matrixValues);
+        GL.Uniform3(_lightPositionLocation, 4.0f, 5.0f, 3.0f);
+
         GL.BindVertexArray(_vao);
+        GL.DrawArrays(PrimitiveType.Triangles, 0, _vertexCount);
 
-        // Draw one triangle consisting of three vertices.
-        GL.DrawArrays(PrimitiveType.Triangles, 0, 3);
-
-        // Reset bindings.
         GL.BindVertexArray(0);
         GL.UseProgram(0);
+        GL.Disable(EnableCap.DepthTest);
     }
 
     /// <summary>
@@ -130,65 +293,42 @@ internal sealed class TriangleRenderer
             GL.DeleteProgram(_shaderProgram);
             _shaderProgram = 0;
         }
+
+        _vertexCount = 0;
     }
 
     /// <summary>
-    /// Compiles and links the vertex and fragment shaders.
+    /// Loads, compiles, and links the preview shaders.
     /// </summary>
+    /// <param name="isOpenGlEs">Whether the context uses OpenGL ES.</param>
+    /// <returns>The linked shader program.</returns>
     private static int CreateShaderProgram(bool isOpenGlEs)
     {
         string version = isOpenGlEs
             ? "#version 300 es\nprecision highp float;\n"
             : "#version 150\n";
 
-        string vertexSource =
-            version
-            + """
-                in vec3 position;
-
-                void main()
-                {
-                    gl_Position = vec4(position, 1.0);
-                }
-                """;
-
-        string fragmentSource =
-            version
-            + """
-                out vec4 fragColor;
-
-                void main()
-                {
-                    fragColor = vec4(0.749, 0.106, 0.663, 1.0);
-                }
-                """;
+        string vertexSource = version + ReadShader("preview.vert");
+        string fragmentSource = version + ReadShader("preview.frag");
 
         int vertexShader = CompileShader(ShaderType.VertexShader, vertexSource);
-
-        int fragmentShader;
+        int fragmentShader = 0;
+        int program = 0;
 
         try
         {
             fragmentShader = CompileShader(ShaderType.FragmentShader, fragmentSource);
-        }
-        catch
-        {
-            GL.DeleteShader(vertexShader);
-            throw;
-        }
 
-        int program = GL.CreateProgram();
+            program = GL.CreateProgram();
 
-        try
-        {
             GL.AttachShader(program, vertexShader);
             GL.AttachShader(program, fragmentShader);
 
-            // Associate the shader input with vertex attribute 0.
             GL.BindAttribLocation(program, 0, "position");
+            GL.BindAttribLocation(program, 1, "normal");
+            GL.BindAttribLocation(program, 2, "color");
 
             GL.LinkProgram(program);
-
             GL.GetProgram(program, GetProgramParameterName.LinkStatus, out int success);
 
             if (success == 0)
@@ -198,21 +338,52 @@ internal sealed class TriangleRenderer
                 );
             }
 
+            GL.DetachShader(program, vertexShader);
+            GL.DetachShader(program, fragmentShader);
+
             return program;
         }
         catch
         {
-            GL.DeleteProgram(program);
+            if (program != 0)
+            {
+                GL.DeleteProgram(program);
+            }
             throw;
         }
         finally
         {
-            GL.DetachShader(program, vertexShader);
-            GL.DetachShader(program, fragmentShader);
-
             GL.DeleteShader(vertexShader);
-            GL.DeleteShader(fragmentShader);
+            if (fragmentShader != 0)
+            {
+                GL.DeleteShader(fragmentShader);
+            }
         }
+    }
+
+    /// <summary>
+    /// Reads an embedded preview shader.
+    /// </summary>
+    /// <param name="fileName">The shader file name.</param>
+    /// <returns>The shader source code.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when the shader resource cannot be found.
+    /// </exception>
+    private static string ReadShader(string fileName)
+    {
+        string resourceName = "Photon.App.Shaders." + fileName;
+
+        using Stream? stream = typeof(TriangleRenderer).Assembly.GetManifestResourceStream(
+            resourceName
+        );
+
+        if (stream == null)
+        {
+            throw new InvalidOperationException("Shader resource not found: " + resourceName);
+        }
+
+        using StreamReader reader = new StreamReader(stream);
+        return reader.ReadToEnd();
     }
 
     /// <summary>
