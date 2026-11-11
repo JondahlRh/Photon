@@ -1,10 +1,11 @@
 // -----------------------------------------------------------------------------
-// Author:        XISander, BrackyDayn
+// Author:        XISander, BrackyDayn, MJZgh
 // AI Assistance: Claude for project skeleton, ChatGpt Codex for help with understanding.
 // -----------------------------------------------------------------------------
 
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Microsoft.Extensions.Logging;
 using Photon.Application.ViewModels;
 
 namespace Photon.App.Views;
@@ -21,7 +22,9 @@ public partial class MainWindow : Window
     {
         AvaloniaXamlLoader.Load(this);
 
-        var viewModel = new MainWindowViewModel();
+        var viewModel = new MainWindowViewModel(
+            Program.Loggers.CreateLogger<MainWindowViewModel>()
+        );
         DataContext = viewModel;
 
         var preview =
