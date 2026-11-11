@@ -1,6 +1,6 @@
 // -----------------------------------------------------------------------------
 // Author:        BrackyDayn
-// AI Assistance: ChatGpt for summary, exceptions and intigration, 
+// AI Assistance: ChatGpt for summary, exceptions and intigration,
 // -----------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
@@ -128,7 +128,7 @@ internal sealed class TriangleRenderer
                 //AppendVertex(vertices, triangle.Vertex0, mesh.Normals[triangle.Index0], color);
                 //AppendVertex(vertices, triangle.Vertex1, mesh.Normals[triangle.Index1], color);
                 //AppendVertex(vertices, triangle.Vertex2, mesh.Normals[triangle.Index2], color);
-                
+
                 // Temporary flat shading for the demo.
                 Vector3 normal = Vector3.Cross(
                     triangle.Vertex1 - triangle.Vertex0,
@@ -147,8 +147,6 @@ internal sealed class TriangleRenderer
                 AppendVertex(vertices, triangle.Vertex0, normal, color);
                 AppendVertex(vertices, triangle.Vertex1, normal, color);
                 AppendVertex(vertices, triangle.Vertex2, normal, color);
-
-
             }
         }
 
