@@ -1,6 +1,6 @@
 // -----------------------------------------------------------------------------
 // Author:        MJZgh
-// AI Assistance: Claude for logging Documentation
+// AI Assistance: Claude for Test Setup
 // -----------------------------------------------------------------------------
 
 using Microsoft.Extensions.Logging;
