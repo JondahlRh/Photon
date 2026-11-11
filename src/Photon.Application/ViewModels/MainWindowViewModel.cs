@@ -1,13 +1,18 @@
 // -----------------------------------------------------------------------------
 // Author:        BrackyDayn, Florian Hipp, MJZgh
-// AI Assistance: ChatGpt for Triangle coordiantes; Claude for logging documentation
+// AI Assistance: ChatGpt for Triangle coordiantes, Summary and Exeptions; Claude for logging documentation; ChatGPT Codex for merge conflict resolution; inspiration from https://docs.avaloniaui.net/docs/how-to/mvvm-how-to
 // -----------------------------------------------------------------------------
+using System;
+using System.IO;
 using System.Numerics;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Photon.Core.InputOutput;
 using Photon.Core.Mathematics;
+using Photon.Core.Scenes;
 
 namespace Photon.Application.ViewModels;
 
@@ -107,6 +112,31 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>Render Progress</summary>
     [ObservableProperty]
     private double _progressPercent;
+
+    /// <summary>
+    /// Path of the model most recently imported successfully.
+    /// </summary>
+    [ObservableProperty]
+    private string _modelPath = string.Empty;
+
+    /// <summary>
+    /// Imports a model without blocking the UI while parsing.
+    /// </summary>
+    /// <param name="path">The selected OBJ file path.</param>
+    /// <returns>The imported model.</returns>
+    public async Task<Model> LoadModelAsync(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        StatusText = "Importing model...";
+
+        Model model = await Task.Run(() => ObjMtlImporter.Load(path));
+
+        ModelPath = path;
+        StatusText = $"Loaded {Path.GetFileName(path)}: {model.TriangleCount} triangles.";
+
+        return model;
+    }
 
     /// <summary>Starts the rendering process</summary>
     [RelayCommand]
