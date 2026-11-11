@@ -1,10 +1,12 @@
 // -----------------------------------------------------------------------------
-// Author:        BrackyDayn, Florian Hipp
-// AI Assistance: ChatGpt for Triangle coordiantes
+// Author:        BrackyDayn, Florian Hipp, MJZgh
+// AI Assistance: ChatGpt for Triangle coordiantes; Claude for logging documentation
 // -----------------------------------------------------------------------------
 using System.Numerics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Photon.Core.Mathematics;
 
 namespace Photon.Application.ViewModels;
@@ -14,6 +16,24 @@ namespace Photon.Application.ViewModels;
 /// </summary>
 public sealed partial class MainWindowViewModel : ObservableObject
 {
+    /// <summary>The logger of this view model.</summary>
+    private readonly ILogger<MainWindowViewModel> _logger;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MainWindowViewModel"/> class without a logger.
+    /// </summary>
+    public MainWindowViewModel()
+        : this(null) { }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MainWindowViewModel"/> class.
+    /// </summary>
+    /// <param name="logger">The logger; <see cref="NullLogger{T}"/> is used when <c>null</c>.</param>
+    public MainWindowViewModel(ILogger<MainWindowViewModel>? logger)
+    {
+        _logger = logger ?? NullLogger<MainWindowViewModel>.Instance;
+    }
+
     /// <summary>
     /// Triangle for opengl preview
     /// </summary>
@@ -92,7 +112,19 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void StartRender()
     {
+        LogRenderStarted(RenderWidth, RenderHeight, SamplesPerPixel, MaxRecursionDepth);
         StatusText = "Rendering...";
         ProgressPercent = 50;
     }
+
+    /// <summary>Logs the start of a render run.</summary>
+    /// <param name="width">The image width in pixels.</param>
+    /// <param name="height">The image height in pixels.</param>
+    /// <param name="samples">The samples per pixel.</param>
+    /// <param name="depth">The maximum recursion depth.</param>
+    [LoggerMessage(
+        Level = LogLevel.Information,
+        Message = "Render started: {Width}x{Height}, {Samples} samples, max depth {Depth}"
+    )]
+    private partial void LogRenderStarted(int width, int height, int samples, int depth);
 }
