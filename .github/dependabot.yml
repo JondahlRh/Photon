@@ -17,6 +17,8 @@ updates:
         patterns: ["OpenTK*"]
       test-tooling:
         patterns: ["xunit*", "Microsoft.NET.Test.Sdk", "coverlet*"]
+      microsoft-extensions:
+        patterns: [ "Microsoft.Extensions.*" ]
     commit-message:
       prefix: "bump"
 
