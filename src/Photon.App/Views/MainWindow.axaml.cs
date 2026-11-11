@@ -1,6 +1,6 @@
 // -----------------------------------------------------------------------------
-// Author:        XISander, BrackyDayn
-// AI Assistance: Claude for project skeleton, ChatGpt Codex for help with understanding.
+// Author:        XISander, BrackyDayn, MJZgh
+// AI Assistance: Claude for project skeleton, ChatGpt Codex for help with understanding and merge conflict resolution.
 // -----------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
@@ -9,6 +9,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform.Storage;
+using Microsoft.Extensions.Logging;
 using Photon.Application.ViewModels;
 using Photon.Core.Scenes;
 
@@ -31,7 +32,7 @@ public partial class MainWindow : Window
     {
         AvaloniaXamlLoader.Load(this);
 
-        DataContext = new MainWindowViewModel();
+        DataContext = new MainWindowViewModel(Program.Loggers.CreateLogger<MainWindowViewModel>());
 
         _preview =
             this.FindControl<ModelPreviewControl>("Preview")
