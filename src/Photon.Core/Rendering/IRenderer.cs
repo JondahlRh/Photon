@@ -22,5 +22,10 @@ public interface IRenderer
     /// <param name="cancellationToken">Checked before each row.</param>
     /// <exception cref="ArgumentException">The buffer size does not match the camera.</exception>
     /// <exception cref="OperationCanceledException">The render was cancelled; finished rows stay in the buffer.</exception>
-    void Render(Scene scene, RenderSettings settings, FrameBuffer target, CancellationToken cancellationToken);
+    void Render(
+        Scene scene,
+        RenderSettings settings,
+        FrameBuffer target,
+        CancellationToken cancellationToken
+    );
 }

@@ -51,7 +51,8 @@ public class RayTracer : IRenderer
                         closestDistance,
                         out HitInfo info
                     );
-                    if (!hit) continue;
+                    if (!hit)
+                        continue;
 
                     closestDistance = info.Distance;
                     closestHitInfo = info;
