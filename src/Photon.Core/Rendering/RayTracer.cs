@@ -13,7 +13,7 @@ namespace Photon.Core.Rendering;
 /// <summary>
 /// A ray tracer that renders a scene into a buffer. This is the main entry point for rendering.
 /// </summary>
-public class RayTracer : IRenderer
+public sealed class RayTracer : IRenderer
 {
     /// <inheritdoc/>
     public void Render(
@@ -29,7 +29,10 @@ public class RayTracer : IRenderer
 
         if (scene.Camera.Width != target.Width || scene.Camera.Height != target.Height)
         {
-            throw new ArgumentException("The buffer size does not match the camera.");
+            throw new ArgumentException(
+                "The buffer size does not match the camera.",
+                nameof(target)
+            );
         }
 
         for (int y = 0; y < target.Height; y++)
