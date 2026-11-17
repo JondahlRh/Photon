@@ -134,14 +134,16 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <returns>The imported model.</returns>
     public async Task<Model> LoadModelAsync(string path)
     {
+        LogLoadingModelPath(path);
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
-        StatusText = "Importing model...";
+        //StatusText = "Importing model...";
 
         Model model = await Task.Run(() => ObjMtlImporter.Load(path));
 
         ModelPath = path;
-        StatusText = $"Loaded {Path.GetFileName(path)}: {model.TriangleCount} triangles.";
+        //StatusText = $"Loaded {Path.GetFileName(path)}: {model.TriangleCount} triangles.";
+        LogLoadedModel(path, model.TriangleCount);
 
         return model;
     }
@@ -186,4 +188,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Message = "Render started: {Width}x{Height}, {Samples} samples, max depth {Depth}"
     )]
     private partial void LogRenderStarted(int width, int height, int samples, int depth);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Loading model {path}")]
+    private partial void LogLoadingModelPath(String path);
+
+    [LoggerMessage(
+        Level = LogLevel.Information,
+        Message = "Loaded {path}: {triangleCount} triangles."
+    )]
+    private partial void LogLoadedModel(String path, int triangleCount);
 }
