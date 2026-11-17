@@ -25,13 +25,16 @@
   </Window.Styles>
 
   <Grid>
-
     <DockPanel IsVisible="{Binding !IsResultVisible}">
       <Border DockPanel.Dock="Top" BorderBrush="Gray" BorderThickness="0,0,0,1" Padding="8">
         <StackPanel Orientation="Horizontal" Spacing="8">
           <Button Content="Import OBJ" Click="ImportModelClicked" />
           <Button Content="Import Scene" />
-          <Button Content="Show Result" Command="{Binding ShowResultCommand}" IsVisible="{Binding HasRenderResult}"/>
+          <Button
+            Content="Show Result"
+            Command="{Binding ShowResultCommand}"
+            IsVisible="{Binding HasRenderResult}"
+          />
           <TextBlock
             Text="{Binding ModelPath}"
             ToolTip.Tip="{Binding ModelPath}"
@@ -157,12 +160,10 @@
       </Grid>
     </DockPanel>
 
-
     <DockPanel IsVisible="{Binding IsResultVisible}">
-
       <Border DockPanel.Dock="Top" BorderBrush="Gray" BorderThickness="0,0,0,1" Padding="8">
         <StackPanel Orientation="Horizontal" Spacing="8">
-          <Button Content="Edit Scene" Command="{Binding EditSceneCommand}"/>
+          <Button Content="Edit Scene" Command="{Binding EditSceneCommand}" />
           <Button Content="Save PNG" />
           <Button Content="Export Scene" />
         </StackPanel>
@@ -182,7 +183,5 @@
         </Border>
       </Grid>
     </DockPanel>
-
   </Grid>
-    
 </Window>
