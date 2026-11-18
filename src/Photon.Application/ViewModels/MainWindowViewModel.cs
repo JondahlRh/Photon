@@ -117,11 +117,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [ObservableProperty]
     private double _progressPercent;
 
-    /// <summary>True wenn die Render-Ansicht (Vollbild, ohne Seitenleiste) angezeigt wird.</summary>
+    /// <summary>True wenn die Render-Ansicht angezeigt wird</summary>
     [ObservableProperty]
     private bool _isResultVisible;
 
-    /// <summary>True sobald ein Renderergebnis existiert (steuert "Show Result").</summary>
+    /// <summary>True sobald ein Renderergebnis existiert</summary>
     [ObservableProperty]
     private bool _hasRenderResult;
 
