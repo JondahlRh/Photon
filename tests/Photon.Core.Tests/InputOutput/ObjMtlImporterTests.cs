@@ -70,7 +70,7 @@ public sealed class ObjMtlImporterTests : IDisposable
         try
         {
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
-            Model model = ObjMtlImporter.Load(path);
+            Model model = ObjMtlImporter.Load(path).Model;
 
             Assert.Equal(3, model.TriangleCount);
             Assert.Equal(3, model.Meshes.Count);
@@ -106,7 +106,7 @@ public sealed class ObjMtlImporterTests : IDisposable
             """
         );
 
-        Model model = ObjMtlImporter.Load(path);
+        Model model = ObjMtlImporter.Load(path).Model;
 
         Mesh mesh = Assert.Single(model.Meshes);
 
@@ -134,7 +134,7 @@ public sealed class ObjMtlImporterTests : IDisposable
             """
         );
 
-        Model model = ObjMtlImporter.Load(path);
+        Model model = ObjMtlImporter.Load(path).Model;
 
         Assert.Equal(2, model.TriangleCount);
         Assert.Equal(2, model.Meshes.Count);
@@ -163,7 +163,7 @@ public sealed class ObjMtlImporterTests : IDisposable
             """
         );
 
-        Model model = ObjMtlImporter.Load(path);
+        Model model = ObjMtlImporter.Load(path).Model;
 
         Mesh mesh = Assert.Single(model.Meshes);
 
@@ -185,7 +185,9 @@ public sealed class ObjMtlImporterTests : IDisposable
         string materialPath = WriteFile("palette.mtl", "newmtl Red\n" + colorLine);
         string path = WriteFile("model.obj", "mtllib palette.mtl\n");
 
-        FormatException exception = Assert.Throws<FormatException>(() => ObjMtlImporter.Load(path));
+        FormatException exception = Assert.Throws<FormatException>(() =>
+            ObjMtlImporter.Load(path).Model
+        );
 
         Assert.Contains(materialPath + ":2:", exception.Message, StringComparison.Ordinal);
     }
@@ -199,7 +201,9 @@ public sealed class ObjMtlImporterTests : IDisposable
         string materialPath = WriteFile("palette.mtl", "Kd 1 0 0\n");
         string path = WriteFile("model.obj", "mtllib palette.mtl\n");
 
-        FormatException exception = Assert.Throws<FormatException>(() => ObjMtlImporter.Load(path));
+        FormatException exception = Assert.Throws<FormatException>(() =>
+            ObjMtlImporter.Load(path).Model
+        );
 
         Assert.Contains(materialPath + ":1:", exception.Message, StringComparison.Ordinal);
     }

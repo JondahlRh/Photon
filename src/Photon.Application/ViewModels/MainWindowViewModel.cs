@@ -137,12 +137,19 @@ public sealed partial class MainWindowViewModel : ObservableObject
         LogLoadingModelPath(path);
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
-        //StatusText = "Importing model...";
+        StatusText = "Importing model...";
 
-        Model model = await Task.Run(() => ObjMtlImporter.Load(path));
+        ImportResult result = await Task.Run(() => ObjMtlImporter.Load(path));
+        Model model = result.Model;
 
         ModelPath = path;
-        //StatusText = $"Loaded {Path.GetFileName(path)}: {model.TriangleCount} triangles.";
+        StatusText = $"Loaded {Path.GetFileName(path)}: {model.TriangleCount} triangles.";
+
+        foreach (string warning in result.Warnings)
+        {
+            LogLoadedModelWarning(warning);
+        }
+
         LogLoadedModel(path, model.TriangleCount);
 
         return model;
@@ -158,6 +165,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         IsResultVisible = false;
         ProgressPercent = 0;
         StatusText = "Rendering...";
+        LogSimpleMessage("Rendering...");
 
         for (int i = 1; i <= 100; i++)
         {
@@ -166,6 +174,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
 
         StatusText = "Render finished.";
+        LogSimpleMessage("Render finished.");
         HasRenderResult = true;
         IsResultVisible = true;
     }
@@ -197,4 +206,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Message = "Loaded {path}: {triangleCount} triangles."
     )]
     private partial void LogLoadedModel(String path, int triangleCount);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "{message}")]
+    private partial void LogSimpleMessage(String message);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "{warning}")]
+    private partial void LogLoadedModelWarning(String warning);
 }

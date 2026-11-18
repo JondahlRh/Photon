@@ -1,12 +1,13 @@
 // -----------------------------------------------------------------------------
-// Author:        BrackyDayn
-// AI Assistance: Chatgpt codex for Summary, Expections, and help with String operations
+// Author:        BrackyDayn, MJZgh
+// AI Assistance: Chatgpt codex for Summary, Expections, and help with String operations; Claude for code documentation and feedback
 // -----------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Numerics;
+using Photon.Core.Mathematics;
 using Photon.Core.Scenes;
 
 namespace Photon.Core.InputOutput;
@@ -21,7 +22,7 @@ public readonly struct ObjMtlImporter
     /// Loads vertex positions, triangular faces, and their material assignments.
     /// </summary>
     /// <param name="path">The path to the OBJ file.</param>
-    /// <returns>The imported geometry and materials, including a gray fallback.</returns>
+    /// <returns>The imported model and the warnings collected during the import.</returns>
     /// <exception cref="ArgumentException">
     /// Thrown when the path is null, empty, or whitespace.
     /// </exception>
@@ -31,16 +32,17 @@ public readonly struct ObjMtlImporter
     /// <exception cref="FormatException">
     /// Thrown when an OBJ or MTL file contains invalid data, or no faces are found.
     /// </exception>
-    /// <exception cref="NotSupportedException">
-    /// Thrown when a face is not triangular or an unsupported statement occurs.
-    /// </exception>
-    public static Model Load(string path)
+    public static ImportResult Load(string path)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
         List<Vector3> positions = new List<Vector3>();
-        List<(int A, int B, int C)> faces = new List<(int A, int B, int C)>();
+        List<FaceCorner[]> faces = new List<FaceCorner[]>();
         List<int> materialIndices = new List<int>();
+        List<Vector3> normals = new List<Vector3>();
+        var definedMaterials = new HashSet<string>(StringComparer.Ordinal);
+        var warnings = new List<string>();
+        var warnedKeywords = new HashSet<string>(StringComparer.Ordinal);
 
         List<Material> materials = new List<Material> { Material.Default };
         Dictionary<string, int> materialLookup = new Dictionary<string, int>(
@@ -100,22 +102,48 @@ public readonly struct ObjMtlImporter
                         );
                     }
 
-                    if (parts.Length != 4)
+                    var corners = new FaceCorner[parts.Length - 1];
+
+                    for (int i = 1; i < parts.Length; i++)
                     {
-                        throw new NotSupportedException(
-                            $"{location}: Only triangular faces are supported."
+                        corners[i - 1] = ParseCorner(
+                            parts[i],
+                            positions.Count,
+                            normals.Count,
+                            location
                         );
                     }
 
-                    int a = ParseVertexIndex(parts[1], positions.Count, location);
-                    int b = ParseVertexIndex(parts[2], positions.Count, location);
-                    int c = ParseVertexIndex(parts[3], positions.Count, location);
-
-                    faces.Add((a, b, c));
+                    faces.Add(corners);
 
                     materialIndices.Add(currentMaterialIndex);
                     break;
                 }
+
+                case "vn":
+                {
+                    if (parts.Length != 4)
+                    {
+                        throw new FormatException(
+                            $"{location}: Expected a normal in the form 'vn x y z'."
+                        );
+                    }
+
+                    var normal = new Vector3(
+                        ParseCoordinate(parts[1], location),
+                        ParseCoordinate(parts[2], location),
+                        ParseCoordinate(parts[3], location)
+                    );
+
+                    if (VectorMath.IsNearlyZero(normal))
+                    {
+                        throw new FormatException($"{location}: Normal has zero length.");
+                    }
+
+                    normals.Add(normal);
+                    break;
+                }
+
                 case "mtllib":
                 {
                     if (parts.Length < 2)
@@ -128,7 +156,17 @@ public readonly struct ObjMtlImporter
                     for (int i = 1; i < parts.Length; i++)
                     {
                         string materialPath = Path.Combine(directory, parts[i]);
-                        LoadMaterials(materialPath, materials, materialLookup);
+
+                        if (!File.Exists(materialPath))
+                        {
+                            warnings.Add(
+                                $"{location}: Material library '{parts[i]}' was not found; "
+                                    + "affected faces use a gray fallback."
+                            );
+                            continue;
+                        }
+
+                        LoadMaterials(materialPath, materials, materialLookup, definedMaterials);
                     }
 
                     break;
@@ -156,14 +194,17 @@ public readonly struct ObjMtlImporter
                 case "g":
                 case "s":
                 case "vt":
-                case "vn":
                     // The preview uses one mesh and calculated face normals.
                     break;
 
                 default:
-                    throw new NotSupportedException(
-                        $"{location}: OBJ statement '{parts[0]}' is not supported yet."
-                    );
+                    if (warnedKeywords.Add(parts[0]))
+                    {
+                        warnings.Add(
+                            $"{location}: OBJ statement '{parts[0]}' is not supported and was skipped."
+                        );
+                    }
+                    break;
             }
         }
 
@@ -171,11 +212,28 @@ public readonly struct ObjMtlImporter
         {
             throw new FormatException($"{path}: No triangular faces were found.");
         }
+
+        for (int i = 1; i < materials.Count; i++)
+        {
+            if (!definedMaterials.Contains(materials[i].Name))
+            {
+                warnings.Add(
+                    $"{path}: Material '{materials[i].Name}' is not defined in any material "
+                        + "library; a gray fallback is used."
+                );
+            }
+        }
+
         var builder = new ModelBuilder();
 
         foreach (Vector3 pos in positions)
         {
             builder.AddPosition(pos);
+        }
+
+        foreach (Vector3 normal in normals)
+        {
+            builder.AddNormal(normal);
         }
 
         for (int i = 1; i < materials.Count; i++)
@@ -194,10 +252,9 @@ public readonly struct ObjMtlImporter
                 activeMaterialIndex = materialIndex;
             }
 
-            var face = faces[i];
-            builder.AddTriangle(face.A, face.B, face.C);
+            builder.AddFace(faces[i]);
         }
-        return builder.Build();
+        return new ImportResult(builder.Build(), warnings);
     }
 
     /// <summary>
@@ -207,6 +264,7 @@ public readonly struct ObjMtlImporter
     /// <param name="path">The material library path.</param>
     /// <param name="materials">The model's material collection.</param>
     /// <param name="materialLookup">Material names mapped to collection indices.</param>
+    /// <param name="definedMaterials">The names of all materials defined so far.</param>
     /// <exception cref="IOException">
     /// Thrown when an existing material library cannot be read.
     /// </exception>
@@ -216,7 +274,8 @@ public readonly struct ObjMtlImporter
     private static void LoadMaterials(
         string path,
         List<Material> materials,
-        Dictionary<string, int> materialLookup
+        Dictionary<string, int> materialLookup,
+        HashSet<string> definedMaterials
     )
     {
         if (!File.Exists(path))
@@ -257,6 +316,7 @@ public readonly struct ObjMtlImporter
                 }
 
                 string name = line["newmtl".Length..].Trim();
+                definedMaterials.Add(name);
 
                 if (!materialLookup.TryGetValue(name, out materialIndex))
                 {
@@ -327,25 +387,51 @@ public readonly struct ObjMtlImporter
     }
 
     /// <summary>
-    /// Reads an OBJ position index and converts it into a zero-based index.
-    /// Texture and normal references after a slash are ignored.
+    /// Parses one face corner of the form <c>v</c>, <c>v/vt</c>, <c>v//vn</c> or <c>v/vt/vn</c>.
     /// </summary>
-    /// <param name="text">The complete face reference, such as "1/2/3".</param>
-    /// <param name="vertexCount">The number of previously read positions.</param>
+    /// <param name="text">The corner text.</param>
+    /// <param name="positionCount">The number of positions read so far.</param>
+    /// <param name="normalCount">The number of normals read so far.</param>
     /// <param name="location">The file path and line number for error messages.</param>
-    /// <returns>The zero-based position index.</returns>
-    /// <exception cref="FormatException">
-    /// Thrown when the position index is invalid or out of range.
-    /// </exception>
-    private static int ParseVertexIndex(string text, int vertexCount, string location)
+    /// <returns>The corner with zero-based position and optional normal indices.</returns>
+    /// <exception cref="FormatException">Thrown when an index is invalid or out of range.</exception>
+    private static FaceCorner ParseCorner(
+        string text,
+        int positionCount,
+        int normalCount,
+        string location
+    )
     {
-        int slashIndex = text.IndexOf('/');
+        string[] fields = text.Split('/');
 
-        if (slashIndex >= 0)
+        if (fields.Length > 3)
         {
-            text = text[..slashIndex];
+            throw new FormatException($"{location}: Invalid face vertex '{text}'.");
         }
 
+        int positionIndex = ResolveIndex(fields[0], positionCount, "position", location);
+        int? normalIndex = null;
+
+        // The texture index in fields[1] is ignored.
+        if (fields.Length == 3 && fields[2].Length > 0)
+        {
+            normalIndex = ResolveIndex(fields[2], normalCount, "normal", location);
+        }
+
+        return new FaceCorner(positionIndex, normalIndex);
+    }
+
+    /// <summary>
+    /// Converts a one-based or negative OBJ index into a zero-based index.
+    /// </summary>
+    /// <param name="text">The index text.</param>
+    /// <param name="count">The number of elements read so far.</param>
+    /// <param name="kind">The element kind for error messages, such as "position".</param>
+    /// <param name="location">The file path and line number for error messages.</param>
+    /// <returns>The zero-based index.</returns>
+    /// <exception cref="FormatException">Thrown when the index is zero, invalid, or out of range.</exception>
+    private static int ResolveIndex(string text, int count, string kind, string location)
+    {
         bool success = int.TryParse(
             text,
             NumberStyles.Integer,
@@ -355,25 +441,15 @@ public readonly struct ObjMtlImporter
 
         if (!success || objIndex == 0)
         {
-            throw new FormatException($"{location}: Invalid position index '{text}'.");
+            throw new FormatException($"{location}: Invalid {kind} index '{text}'.");
         }
 
-        int index;
+        // Positive indices start at 1; negative indices count back from the end read so far.
+        int index = objIndex > 0 ? objIndex - 1 : count + objIndex;
 
-        if (objIndex > 0)
+        if (index < 0 || index >= count)
         {
-            // Positive OBJ indices start at 1.
-            index = objIndex - 1;
-        }
-        else
-        {
-            // Negative indices count backward from the positions read so far.
-            index = vertexCount + objIndex;
-        }
-
-        if (index < 0 || index >= vertexCount)
-        {
-            throw new FormatException($"{location}: Position index '{text}' is out of range.");
+            throw new FormatException($"{location}: {kind} index '{text}' is out of range.");
         }
 
         return index;
