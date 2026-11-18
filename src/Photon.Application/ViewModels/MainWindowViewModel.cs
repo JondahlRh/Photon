@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Photon.Core.InputOutput;
 using Photon.Core.Mathematics;
 using Photon.Core.Scenes;
+using Photon.Core.Imaging;
 
 namespace Photon.Application.ViewModels;
 
@@ -34,9 +35,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// Initializes a new instance of the <see cref="MainWindowViewModel"/> class.
     /// </summary>
     /// <param name="logger">The logger; <see cref="NullLogger{T}"/> is used when <c>null</c>.</param>
-    public MainWindowViewModel(ILogger<MainWindowViewModel>? logger)
+    /// <param name="imageExporter">Exporter used to save PNG files.</param>
+    public MainWindowViewModel(ILogger<MainWindowViewModel>? logger, ImageExporter? imageExporter = null)
     {
         _logger = logger ?? NullLogger<MainWindowViewModel>.Instance;
+
+        _imageExporter = imageExporter;
     }
 
     /// <summary>
@@ -122,6 +126,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private bool _hasRenderResult;
 
     /// <summary>
+    /// The last rendered image, the raytracer has to set this after rendering.
+    /// </summary>
+    public FrameBuffer? RenderResult { get; set; }
+
+    /// <summary>
     /// Path of the model most recently imported successfully.
     /// </summary>
     [ObservableProperty]
@@ -186,4 +195,30 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Message = "Render started: {Width}x{Height}, {Samples} samples, max depth {Depth}"
     )]
     private partial void LogRenderStarted(int width, int height, int samples, int depth);
+
+    /// <summary>
+    /// Saves the last render result as PNG.
+    /// </summary>
+    /// <param name="path">The target file path.</param>
+    /// <returns>A task that finishes when the file is saved.</returns>
+    public async Task SavePngAsync(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        if (_imageExporter is null)
+        {
+            throw new InvalidOperationException("No image exporter available.");
+        }
+
+        if (RenderResult is null)
+        {
+            throw new InvalidOperationException("There is no render result to save.");
+        }
+
+        StatusText = "Saving PNG...";
+
+        await _imageExporter.ExportPngAsync(RenderResult, path);
+
+        StatusText = $"Saved {Path.GetFileName(path)}.";
+    }
 }
