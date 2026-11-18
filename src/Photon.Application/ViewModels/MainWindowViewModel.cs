@@ -113,6 +113,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [ObservableProperty]
     private double _progressPercent;
 
+    /// <summary>True wenn die Render-Ansicht (Vollbild, ohne Seitenleiste) angezeigt wird.</summary>
+    [ObservableProperty]
+    private bool _isResultVisible;
+
+    /// <summary>True sobald ein Renderergebnis existiert (steuert "Show Result").</summary>
+    [ObservableProperty]
+    private bool _hasRenderResult;
+
     /// <summary>
     /// Path of the model most recently imported successfully.
     /// </summary>
@@ -138,14 +146,35 @@ public sealed partial class MainWindowViewModel : ObservableObject
         return model;
     }
 
-    /// <summary>Starts the rendering process</summary>
+    /// <summary>Starts the rendering process (test: simulates progress).</summary>
     [RelayCommand]
-    private void StartRender()
+    private async Task StartRenderAsync()
     {
         LogRenderStarted(RenderWidth, RenderHeight, SamplesPerPixel, MaxRecursionDepth);
+
+        HasRenderResult = false;
+        IsResultVisible = false;
+        ProgressPercent = 0;
         StatusText = "Rendering...";
-        ProgressPercent = 50;
+
+        for (int i = 1; i <= 100; i++)
+        {
+            ProgressPercent = i;
+            await Task.Delay(30); // ca. 3 Sekunden insgesamt
+        }
+
+        StatusText = "Render finished.";
+        HasRenderResult = true;
+        IsResultVisible = true;
     }
+
+    /// <summary>Switches from the result view back to the scene editor.</summary>
+    [RelayCommand]
+    private void EditScene() => IsResultVisible = false;
+
+    /// <summary>Switches to the last render result.</summary>
+    [RelayCommand]
+    private void ShowResult() => IsResultVisible = true;
 
     /// <summary>Logs the start of a render run.</summary>
     /// <param name="width">The image width in pixels.</param>
