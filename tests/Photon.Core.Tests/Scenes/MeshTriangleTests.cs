@@ -41,6 +41,52 @@ public sealed class MeshTriangleTests
     }
 
     [Fact]
+    public void RayOnEdgeHits()
+    {
+        // Lies on the edge from corner 0 to corner 1, so the barycentric v is exactly 0.
+        MeshTriangle triangle = CreateFlatTriangle();
+        var ray = new Ray(new Vector3(0.5f, 0f, 5f), -Vector3.UnitZ);
+
+        bool hit = triangle.Intersect(
+            ray,
+            FloatComparison.Epsilon,
+            float.MaxValue,
+            out HitInfo info
+        );
+
+        Assert.True(hit);
+        Assert.True(FloatComparison.NearlyEqual(5f, info.Distance));
+    }
+
+    [Fact]
+    public void RayOnCornerHits()
+    {
+        MeshTriangle triangle = CreateFlatTriangle();
+        var ray = new Ray(new Vector3(0f, 0f, 5f), -Vector3.UnitZ);
+
+        Assert.True(triangle.Intersect(ray, FloatComparison.Epsilon, float.MaxValue, out _));
+    }
+
+    [Fact]
+    public void RayParallelToTriangleMisses()
+    {
+        MeshTriangle triangle = CreateFlatTriangle();
+        var ray = new Ray(new Vector3(0.2f, 0.2f, 1f), Vector3.UnitX);
+
+        Assert.False(triangle.Intersect(ray, FloatComparison.Epsilon, float.MaxValue, out _));
+    }
+
+    [Fact]
+    public void RayInTrianglePlaneMisses()
+    {
+        // Runs inside the plane through the triangle; the determinant is 0, so it counts as parallel.
+        MeshTriangle triangle = CreateFlatTriangle();
+        var ray = new Ray(new Vector3(-1f, 0.2f, 0f), Vector3.UnitX);
+
+        Assert.False(triangle.Intersect(ray, FloatComparison.Epsilon, float.MaxValue, out _));
+    }
+
+    [Fact]
     public void TriangleBehindRayMisses()
     {
         MeshTriangle triangle = CreateFlatTriangle();
