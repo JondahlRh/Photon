@@ -10,9 +10,9 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform.Storage;
 using Microsoft.Extensions.Logging;
+using Photon.App.Platform.Skia;
 using Photon.Application.ViewModels;
 using Photon.Core.Scenes;
-using Photon.App.Platform.Skia;
 
 namespace Photon.App.Views;
 

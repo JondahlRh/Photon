@@ -10,10 +10,10 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Photon.Core.Imaging;
 using Photon.Core.InputOutput;
 using Photon.Core.Mathematics;
 using Photon.Core.Scenes;
-using Photon.Core.Imaging;
 
 namespace Photon.Application.ViewModels;
 
@@ -39,7 +39,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// </summary>
     /// <param name="logger">The logger; <see cref="NullLogger{T}"/> is used when <c>null</c>.</param>
     /// <param name="imageExporter">Exporter used to save PNG files.</param>
-    public MainWindowViewModel(ILogger<MainWindowViewModel>? logger, IImageExporter? imageExporter = null)
+    public MainWindowViewModel(
+        ILogger<MainWindowViewModel>? logger,
+        IImageExporter? imageExporter = null
+    )
     {
         _logger = logger ?? NullLogger<MainWindowViewModel>.Instance;
 
