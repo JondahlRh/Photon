@@ -25,6 +25,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>The logger of this view model.</summary>
     private readonly ILogger<MainWindowViewModel> _logger;
 
+    /// <summary>Exports the render result as image file</summary>
+    private readonly IImageExporter? _imageExporter;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="MainWindowViewModel"/> class without a logger.
     /// </summary>
@@ -36,7 +39,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// </summary>
     /// <param name="logger">The logger; <see cref="NullLogger{T}"/> is used when <c>null</c>.</param>
     /// <param name="imageExporter">Exporter used to save PNG files.</param>
-    public MainWindowViewModel(ILogger<MainWindowViewModel>? logger, ImageExporter? imageExporter = null)
+    public MainWindowViewModel(ILogger<MainWindowViewModel>? logger, IImageExporter? imageExporter = null)
     {
         _logger = logger ?? NullLogger<MainWindowViewModel>.Instance;
 
