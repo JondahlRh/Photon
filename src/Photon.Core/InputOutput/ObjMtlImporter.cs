@@ -166,7 +166,13 @@ public readonly struct ObjMtlImporter
                             continue;
                         }
 
-                        LoadMaterials(materialPath, materials, materialLookup, definedMaterials);
+                        LoadMaterials(
+                            materialPath,
+                            materials,
+                            materialLookup,
+                            definedMaterials,
+                            warnings
+                        );
                     }
 
                     break;
@@ -185,7 +191,7 @@ public readonly struct ObjMtlImporter
                         // A later library can fill this material without changing face indices.
                         currentMaterialIndex = materials.Count;
                         materialLookup.Add(name, currentMaterialIndex);
-                        materials.Add(CreateMaterial(name, new Vector3(0.8f)));
+                        materials.Add(CreateDefaultMaterial(name));
                     }
 
                     break;
@@ -258,13 +264,13 @@ public readonly struct ObjMtlImporter
     }
 
     /// <summary>
-    /// Loads named materials and their diffuse RGB colors.
-    /// Missing libraries leave existing fallback colors unchanged.
+    /// Loads named materials and their properties. A material that is defined again replaces the earlier one.
     /// </summary>
     /// <param name="path">The material library path.</param>
     /// <param name="materials">The model's material collection.</param>
     /// <param name="materialLookup">Material names mapped to collection indices.</param>
     /// <param name="definedMaterials">The names of all materials defined so far.</param>
+    /// <param name="warnings">The collected warnings for unsupported statements.</param>
     /// <exception cref="IOException">
     /// Thrown when an existing material library cannot be read.
     /// </exception>
@@ -275,7 +281,8 @@ public readonly struct ObjMtlImporter
         string path,
         List<Material> materials,
         Dictionary<string, int> materialLookup,
-        HashSet<string> definedMaterials
+        HashSet<string> definedMaterials,
+        List<String> warnings
     )
     {
         if (!File.Exists(path))
@@ -285,6 +292,7 @@ public readonly struct ObjMtlImporter
 
         int materialIndex = -1;
         int lineNumber = 0;
+        var warnedKeywords = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (string rawLine in File.ReadLines(path))
         {
@@ -322,42 +330,191 @@ public readonly struct ObjMtlImporter
                 {
                     materialIndex = materials.Count;
                     materialLookup.Add(name, materialIndex);
-                    materials.Add(CreateMaterial(name, new Vector3(0.8f)));
+                    materials.Add(CreateDefaultMaterial(name));
                 }
                 else
                 {
-                    materials[materialIndex] = CreateMaterial(name, new Vector3(0.8f));
+                    materials[materialIndex] = CreateDefaultMaterial(name);
                 }
             }
-            else if (parts[0] == "Kd")
+            else if (IsMaterialProperty(parts[0]))
             {
-                if (materialIndex < 0 || parts.Length != 4)
+                if (materialIndex < 0)
                 {
                     throw new FormatException($"{location}: Expected 'Kd r g b' after 'newmtl'.");
                 }
 
-                float red = ParseCoordinate(parts[1], location);
-                float green = ParseCoordinate(parts[2], location);
-                float blue = ParseCoordinate(parts[3], location);
-                string name = materials[materialIndex].Name;
-
-                materials[materialIndex] = CreateMaterial(name, new Vector3(red, green, blue));
+                materials[materialIndex] = ApplyProperty(materials[materialIndex], parts, location);
+            }
+            else if (warnedKeywords.Add(parts[0]))
+            {
+                warnings.Add(
+                    $"{location}: Material '{parts[0]}' is not supported and was skipped."
+                );
             }
         }
     }
 
-    /// <summary>Creates a material with default shading coefficients.</summary>
-    /// <param name="name">The material name.</param>
-    /// <param name="diffuse">The diffuse RGB color.</param>
-    /// <returns>The scene material.</returns>
-    private static Material CreateMaterial(string name, Vector3 diffuse)
+    /// <summary>
+    /// Determines whether a keyword sets a property of the current material.
+    /// </summary>
+    /// <param name="keyword">The first word of the statement.</param>
+    /// <returns>True for the supported property keywords.</returns>
+    private static bool IsMaterialProperty(string keyword)
+    {
+        return keyword is "Ka" or "Kd" or "Ks" or "Ns" or "d" or "Ni" or "illum";
+    }
+
+    /// <summary>
+    /// Returns a copy of a material with one property changed.
+    /// </summary>
+    /// <param name="current">The material to copy.</param>
+    /// <param name="parts">The split statement.</param>
+    /// <param name="location">The file path and line number for error messages.</param>
+    /// <returns>The changed material.</returns>
+    /// <exception cref="FormatException">Thrown when the value is invalid or out of range.</exception>
+    private static Material ApplyProperty(Material current, string[] parts, string location)
+    {
+        string keyword = parts[0];
+
+        try
+        {
+            return keyword switch
+            {
+                "Ka" => Copy(current, ambient: ParseColor(parts, location)),
+                "Kd" => Copy(current, diffuse: ParseColor(parts, location)),
+                "Ks" => Copy(current, specular: ParseColor(parts, location)),
+                "Ns" => Copy(current, specularExponent: ParseSingle(parts, location)),
+                "d" => Copy(current, opacity: ParseSingle(parts, location)),
+                "Ni" => Copy(current, refractiveIndex: ParseSingle(parts, location)),
+                _ => Copy(current, illuminationModel: ParseIlluminationModel(parts, location)),
+            };
+        }
+        catch (ArgumentOutOfRangeException exception)
+        {
+            throw new FormatException(
+                $"{location}: Invalid value for '{keyword}': {exception.Message}"
+            );
+        }
+    }
+
+    /// <summary>
+    /// Parses an RGB color statement such as <c>Kd r g b</c>.
+    /// </summary>
+    /// <param name="parts">The split statement.</param>
+    /// <param name="location">The file path and line number for error messages.</param>
+    /// <returns>The parsed color.</returns>
+    /// <exception cref="FormatException">Thrown when the statement has the wrong shape or an invalid number.</exception>
+    private static Vector3 ParseColor(string[] parts, string location)
+    {
+        if (parts.Length != 4)
+        {
+            throw new FormatException($"{location}: Expected '{parts[0]} r g b'.");
+        }
+
+        return new Vector3(
+            ParseCoordinate(parts[1], location),
+            ParseCoordinate(parts[2], location),
+            ParseCoordinate(parts[3], location)
+        );
+    }
+
+    /// <summary>
+    /// Parses a statement with one number, such as <c>Ns 50</c>.
+    /// </summary>
+    /// <param name="parts">The split statement.</param>
+    /// <param name="location">The file path and line number for error messages.</param>
+    /// <returns>The parsed number.</returns>
+    /// <exception cref="FormatException">Thrown when the statement has the wrong shape or an invalid number.</exception>
+    private static float ParseSingle(string[] parts, string location)
+    {
+        if (parts.Length != 2)
+        {
+            throw new FormatException($"{location}: Expected '{parts[0]} value'.");
+        }
+
+        return ParseCoordinate(parts[1], location);
+    }
+
+    /// <summary>
+    /// Parses the illumination model of an <c>illum</c> statement.
+    /// </summary>
+    /// <param name="parts">The split statement.</param>
+    /// <param name="location">The file path and line number for error messages.</param>
+    /// <returns>The illumination model number.</returns>
+    /// <exception cref="FormatException">Thrown when the value is not an integer.</exception>
+    private static int ParseIlluminationModel(string[] parts, string location)
+    {
+        if (
+            parts.Length != 2
+            || !int.TryParse(
+                parts[1],
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out int model
+            )
+        )
+        {
+            throw new FormatException($"{location}: Expected 'illum' followed by an integer.");
+        }
+
+        return model;
+    }
+
+    /// <summary>
+    /// Creates a copy of a material with the given properties replaced.
+    /// </summary>
+    /// <param name="source">The material to copy.</param>
+    /// <param name="ambient">The ambient reflection coefficient (<c>Ka</c>).</param>
+    /// <param name="diffuse">The diffuse reflection coefficient (<c>Kd</c>).</param>
+    /// <param name="specular">The specular reflection coefficient (<c>Ks</c>).</param>
+    /// <param name="specularExponent">The Phong exponent (<c>Ns</c>); zero or greater.</param>
+    /// <param name="opacity">The opacity (<c>d</c>), from 0 (fully transparent) to 1 (opaque).</param>
+    /// <param name="refractiveIndex">The index of refraction (<c>Ni</c>); greater than zero.</param>
+    /// <param name="illuminationModel">The MTL illumination model (<c>illum</c>), from 0 to 10.</param>
+    /// <returns>The new material.</returns>
+    private static Material Copy(
+        Material source,
+        Vector3? ambient = null,
+        Vector3? diffuse = null,
+        Vector3? specular = null,
+        float? specularExponent = null,
+        float? opacity = null,
+        float? refractiveIndex = null,
+        int? illuminationModel = null
+    )
     {
         return new Material(
-            name: name,
-            ambient: Material.Default.Ambient,
-            diffuse: diffuse,
-            specular: Material.Default.Specular,
-            specularExponent: Material.Default.SpecularExponent
+            name: source.Name,
+            ambient: ambient ?? source.Ambient,
+            diffuse: diffuse ?? source.Diffuse,
+            specular: specular ?? source.Specular,
+            specularExponent: specularExponent ?? source.SpecularExponent,
+            opacity: opacity ?? source.Opacity,
+            refractiveIndex: refractiveIndex ?? source.RefractiveIndex,
+            reflectivity: source.Reflectivity,
+            illuminationModel: illuminationModel ?? source.IlluminationModel
+        );
+    }
+
+    /// <summary>
+    /// Creates a material with the same values as <see cref="Material.Default"/> under the given name.
+    /// </summary>
+    /// <param name="name">The material name.</param>
+    /// <returns>The default material with that name.</returns>
+    private static Material CreateDefaultMaterial(string name)
+    {
+        Material defaults = Material.Default;
+        return new Material(
+            name,
+            defaults.Ambient,
+            defaults.Diffuse,
+            defaults.Specular,
+            defaults.SpecularExponent,
+            defaults.Opacity,
+            defaults.RefractiveIndex,
+            defaults.Reflectivity,
+            defaults.IlluminationModel
         );
     }
 

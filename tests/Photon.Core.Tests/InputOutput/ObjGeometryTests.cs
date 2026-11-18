@@ -170,6 +170,123 @@ public sealed class ObjGeometryTests : IDisposable
         Assert.Contains(path + ":4:", exception.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Checks that all supported MTL properties are copied to the mesh material.
+    /// </summary>
+    [Fact]
+    public void LoadReadsMaterialProperties()
+    {
+        WriteFile(
+            "properties.mtl",
+            """
+            newmtl Red
+            Ka 0.1 0.2 0.3
+            Kd 0.4 0.5 0.6
+            Ks 0.7 0.8 0.9
+            Ns 50
+            d 0.5
+            Ni 1.45
+            illum 2
+            """
+        );
+        string path = WriteFile(
+            "properties.obj",
+            """
+            mtllib properties.mtl
+            v 0 0 0
+            v 1 0 0
+            v 0 1 0
+            usemtl Red
+            f 1 2 3
+            """
+        );
+
+        Material material = Assert.Single(ObjMtlImporter.Load(path).Model.Meshes).Material;
+
+        Assert.Equal("Red", material.Name);
+        Assert.Equal(new Vector3(0.1f, 0.2f, 0.3f), material.Ambient);
+        Assert.Equal(new Vector3(0.4f, 0.5f, 0.6f), material.Diffuse);
+        Assert.Equal(new Vector3(0.7f, 0.8f, 0.9f), material.Specular);
+        Assert.Equal(50f, material.SpecularExponent);
+        Assert.Equal(0.5f, material.Opacity);
+        Assert.Equal(1.45f, material.RefractiveIndex);
+        Assert.Equal(2, material.IlluminationModel);
+    }
+
+    /// <summary>
+    /// Checks that an undefined material name uses the default material values and warns once.
+    /// </summary>
+    [Fact]
+    public void LoadUsesDefaultMaterialForUndefinedName()
+    {
+        string path = WriteFile(
+            "undefined.obj",
+            """
+            v 0 0 0
+            v 1 0 0
+            v 0 1 0
+            usemtl Unknown
+            f 1 2 3
+            """
+        );
+
+        ImportResult result = ObjMtlImporter.Load(path);
+        Material material = Assert.Single(result.Model.Meshes).Material;
+
+        Assert.Equal("Unknown", material.Name);
+        Assert.Equal(Material.Default.Diffuse, material.Diffuse);
+        Assert.Single(result.Warnings);
+    }
+
+    /// <summary>
+    /// Checks that an invalid MTL value throws an exception that names the library and line.
+    /// </summary>
+    [Fact]
+    public void LoadReportsInvalidMaterialValueWithLineNumber()
+    {
+        WriteFile("invalid.mtl", "newmtl Red\nillum 11\n");
+        string path = WriteFile(
+            "invalid.obj",
+            """
+            mtllib invalid.mtl
+            v 0 0 0
+            v 1 0 0
+            v 0 1 0
+            usemtl Red
+            f 1 2 3
+            """
+        );
+
+        FormatException exception = Assert.Throws<FormatException>(() => ObjMtlImporter.Load(path));
+
+        Assert.Contains("invalid.mtl:2:", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Checks that an unsupported MTL keyword is reported once per library.
+    /// </summary>
+    [Fact]
+    public void LoadWarnsOncePerUnknownMtlKeyword()
+    {
+        WriteFile("warn.mtl", "newmtl Red\nmap_Kd a.png\nmap_Kd b.png\nKd 1 0 0\n");
+        string path = WriteFile(
+            "warn.obj",
+            """
+            mtllib warn.mtl
+            v 0 0 0
+            v 1 0 0
+            v 0 1 0
+            usemtl Red
+            f 1 2 3
+            """
+        );
+
+        ImportResult result = ObjMtlImporter.Load(path);
+
+        string warning = Assert.Single(result.Warnings);
+        Assert.Contains("map_Kd", warning, StringComparison.Ordinal);
+    }
+
     /// <inheritdoc/>
     public void Dispose()
     {
