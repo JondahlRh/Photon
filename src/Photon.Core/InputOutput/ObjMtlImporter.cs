@@ -2,10 +2,8 @@
 // Author:        BrackyDayn, MJZgh
 // AI Assistance: Chatgpt codex for Summary, Expections, and help with String operations; Claude for code documentation and feedback
 // -----------------------------------------------------------------------------
-using System;
-using System.Collections.Generic;
+
 using System.Globalization;
-using System.IO;
 using System.Numerics;
 using Photon.Core.Mathematics;
 using Photon.Core.Scenes;
