@@ -5,6 +5,7 @@
     <Project Path="src/Photon.Core/Photon.Core.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Photon.App.Tests/Photon.App.Tests.csproj" />
     <Project Path="tests/Photon.Application.Tests/Photon.Application.Tests.csproj" />
     <Project Path="tests/Photon.Core.Tests/Photon.Core.Tests.csproj" />
   </Folder>

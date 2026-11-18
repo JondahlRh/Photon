@@ -5,13 +5,16 @@
 using System;
 using System.IO;
 using System.Numerics;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Photon.Core.Imaging;
 using Photon.Core.InputOutput;
 using Photon.Core.Mathematics;
+using Photon.Core.Rendering;
 using Photon.Core.Scenes;
 
 namespace Photon.Application.ViewModels;
@@ -29,6 +32,18 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// </summary>
     public MainWindowViewModel()
         : this(null) { }
+
+    /// <summary>
+    /// The model most recently imported successfully.
+    /// </summary>
+    private Model? _loadedModel;
+
+    /// <summary>The renderer used to generate images.</summary>
+    private readonly RayTracer _renderer = new RayTracer();
+
+    /// <summary>The most recent completed render.</summary>
+    [ObservableProperty]
+    private FrameBuffer? _renderResult;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MainWindowViewModel"/> class.
@@ -140,32 +155,80 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         Model model = await Task.Run(() => ObjMtlImporter.Load(path));
 
+        _loadedModel = model;
+
         ModelPath = path;
         StatusText = $"Loaded {Path.GetFileName(path)}: {model.TriangleCount} triangles.";
 
         return model;
     }
 
-    /// <summary>Starts the rendering process (test: simulates progress).</summary>
+    /// <summary>
+    /// Creates a scene using the imported model and a fixed camera.
+    /// </summary>
+    /// <returns>The scene to render.</returns>
+    private Scene CreateRenderScene()
+    {
+        Model model =
+            _loadedModel ?? throw new InvalidOperationException("Import model before rendering");
+
+        int width = RenderWidth;
+        int height = RenderHeight;
+
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
+
+        Matrix4x4 viewToWorld =
+            Matrix4x4.CreateScale(4f / height)
+            * Matrix4x4.CreateTranslation(0f, 0f, 5f)
+            * Matrix4x4.CreateRotationX(-MathF.PI / 6f)
+            * Matrix4x4.CreateRotationY(MathF.PI / 4f);
+
+        var camera = new Camera(viewToWorld, width, height, new Vector3(0f, 0f, height));
+
+        var lighting = new Lighting(Vector3.Zero, []);
+
+        return new Scene(model, lighting, camera);
+    }
+
+    /// <summary>Renders the imported model without blocking the UI.</summary>
     [RelayCommand]
     private async Task StartRenderAsync()
     {
-        LogRenderStarted(RenderWidth, RenderHeight, SamplesPerPixel, MaxRecursionDepth);
+        if (_loadedModel is null)
+        {
+            StatusText = "Import a model before rendering.";
+            return;
+        }
 
         HasRenderResult = false;
         IsResultVisible = false;
         ProgressPercent = 0;
         StatusText = "Rendering...";
 
-        for (int i = 1; i <= 100; i++)
+        try
         {
-            ProgressPercent = i;
-            await Task.Delay(30); // ca. 3 Sekunden insgesamt
-        }
+            Scene scene = CreateRenderScene();
+            var target = new FrameBuffer(scene.Camera.Width, scene.Camera.Height);
 
-        StatusText = "Render finished.";
-        HasRenderResult = true;
-        IsResultVisible = true;
+            LogRenderStarted(RenderWidth, RenderHeight, SamplesPerPixel, MaxRecursionDepth);
+
+            await Task.Run(() =>
+                _renderer.Render(scene, RenderSettings.Default, target, CancellationToken.None)
+            );
+
+            RenderResult = target;
+            ProgressPercent = 100;
+            HasRenderResult = true;
+            IsResultVisible = true;
+            StatusText = "Render finished.";
+        }
+        catch (Exception exception)
+            when (exception is ArgumentException or InvalidOperationException or OverflowException)
+        {
+            LogRenderFailed(exception);
+            StatusText = $"Render failed: {exception.Message}";
+        }
     }
 
     /// <summary>Switches from the result view back to the scene editor.</summary>
@@ -186,4 +249,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Message = "Render started: {Width}x{Height}, {Samples} samples, max depth {Depth}"
     )]
     private partial void LogRenderStarted(int width, int height, int samples, int depth);
+
+    /// <summary>Logs a failed render operation.</summary>
+    /// <param name="exception">The exception that caused the failure.</param>
+    [LoggerMessage(Level = LogLevel.Error, Message = "Rendering failed.")]
+    private partial void LogRenderFailed(Exception exception);
 }
