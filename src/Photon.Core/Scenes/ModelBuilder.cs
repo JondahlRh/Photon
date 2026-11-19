@@ -1,5 +1,5 @@
 ﻿// -----------------------------------------------------------------------------
-// Author:        Luca Lengl
+// Author:        Luca Lengl, MJZgh
 // AI Assistance: Claude for Information, Bug and Warning
 // -----------------------------------------------------------------------------
 
@@ -187,12 +187,138 @@ public sealed class ModelBuilder
             }
         }
 
-        for (var i = 1; i < corners.Length - 1; i++)
+        AddTriangulated(corners);
+    }
+
+    /// <summary>
+    /// Splits a simple polygon into triangles by ear clipping, so concave polygons are triangulated correctly.
+    /// </summary>
+    /// <param name="corners">The polygon corners in order.</param>
+    /// <exception cref="FormatException">Thrown when the polygon is self-intersecting and cannot be triangulated.</exception>
+    private void AddTriangulated(ReadOnlySpan<FaceCorner> corners)
+    {
+        var points = new Vector3[corners.Length];
+
+        for (int i = 0; i < corners.Length; i++)
         {
-            _currentGroup.Corners.Add(corners[0]);
-            _currentGroup.Corners.Add(corners[i]);
-            _currentGroup.Corners.Add(corners[i + 1]);
+            points[i] = _positions[corners[i].PositionIndex];
         }
+
+        Vector3 normal = NewellNormal(points);
+        var remaining = new List<int>(corners.Length);
+
+        for (int i = 0; i < corners.Length; i++)
+        {
+            remaining.Add(i);
+        }
+
+        while (remaining.Count > 3)
+        {
+            bool clipped = false;
+
+            for (int k = 0; k < remaining.Count && !clipped; k++)
+            {
+                int prev = remaining[(k + remaining.Count - 1) % remaining.Count];
+                int curr = remaining[k];
+                int next = remaining[(k + 1) % remaining.Count];
+
+                if (!IsEar(points, remaining, prev, curr, next, normal))
+                {
+                    continue;
+                }
+
+                EmitTriangle(corners[prev], corners[curr], corners[next]);
+                remaining.RemoveAt(k);
+                clipped = true;
+            }
+
+            if (!clipped)
+            {
+                throw new FormatException(
+                    "The polygon is self-intersecting and cannot be triangulated."
+                );
+            }
+        }
+
+        EmitTriangle(corners[remaining[0]], corners[remaining[1]], corners[remaining[2]]);
+    }
+
+    /// <summary>
+    /// Adds one triangle to the current group.
+    /// </summary>
+    private void EmitTriangle(FaceCorner a, FaceCorner b, FaceCorner c)
+    {
+        _currentGroup.Corners.Add(a);
+        _currentGroup.Corners.Add(b);
+        _currentGroup.Corners.Add(c);
+    }
+
+    /// <summary>
+    /// Determines whether the corner at <paramref name="curr"/> can be clipped as an ear.
+    /// </summary>
+    private static bool IsEar(
+        Vector3[] points,
+        List<int> remaining,
+        int prev,
+        int curr,
+        int next,
+        Vector3 normal
+    )
+    {
+        Vector3 a = points[prev];
+        Vector3 b = points[curr];
+        Vector3 c = points[next];
+
+        // A reflex corner cannot be an ear.
+        if (Vector3.Dot(Vector3.Cross(b - a, c - b), normal) < 0f)
+        {
+            return false;
+        }
+
+        foreach (int other in remaining)
+        {
+            if (other == prev || other == curr || other == next)
+            {
+                continue;
+            }
+
+            if (IsInsideTriangle(points[other], a, b, c, normal))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Determines whether a point lies inside or on the edge of a triangle in the polygon's plane.
+    /// </summary>
+    private static bool IsInsideTriangle(Vector3 p, Vector3 a, Vector3 b, Vector3 c, Vector3 normal)
+    {
+        return Vector3.Dot(Vector3.Cross(b - a, p - a), normal) >= 0f
+            && Vector3.Dot(Vector3.Cross(c - b, p - b), normal) >= 0f
+            && Vector3.Dot(Vector3.Cross(a - c, p - c), normal) >= 0f;
+    }
+
+    /// <summary>
+    /// Calculates the polygon normal with Newell's method. Its length is twice the polygon area.
+    /// </summary>
+    private static Vector3 NewellNormal(Vector3[] points)
+    {
+        var normal = Vector3.Zero;
+
+        for (int i = 0; i < points.Length; i++)
+        {
+            Vector3 a = points[i];
+            Vector3 b = points[(i + 1) % points.Length];
+
+            normal.X += (a.Y - b.Y) * (a.Z + b.Z);
+            normal.Y += (a.Z - b.Z) * (a.X + b.X);
+            normal.Z += (a.X - b.X) * (a.Y + b.Y);
+        }
+
+        return normal;
     }
 
     /// <summary>

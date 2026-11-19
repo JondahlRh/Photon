@@ -342,7 +342,12 @@ public readonly struct ObjMtlImporter
                     throw new FormatException($"{location}: Expected 'Kd r g b' after 'newmtl'.");
                 }
 
-                materials[materialIndex] = ApplyProperty(materials[materialIndex], parts, location);
+                materials[materialIndex] = ApplyProperty(
+                    materials[materialIndex],
+                    parts,
+                    location,
+                    warnings
+                );
             }
             else if (warnedKeywords.Add(parts[0]))
             {
@@ -364,29 +369,57 @@ public readonly struct ObjMtlImporter
     }
 
     /// <summary>
-    /// Returns a copy of a material with one property changed.
+    /// Returns a copy of a material with one property changed. Valid but unsupported forms are skipped with a warning.
     /// </summary>
     /// <param name="current">The material to copy.</param>
     /// <param name="parts">The split statement.</param>
     /// <param name="location">The file path and line number for error messages.</param>
+    /// <param name="warnings">The collected warnings.</param>
     /// <returns>The changed material.</returns>
     /// <exception cref="FormatException">Thrown when the value is invalid or out of range.</exception>
-    private static Material ApplyProperty(Material current, string[] parts, string location)
+    private static Material ApplyProperty(
+        Material current,
+        string[] parts,
+        string location,
+        List<String> warnings
+    )
     {
         string keyword = parts[0];
 
         try
         {
-            return keyword switch
+            switch (keyword)
             {
-                "Ka" => Copy(current, ambient: ParseColor(parts, location)),
-                "Kd" => Copy(current, diffuse: ParseColor(parts, location)),
-                "Ks" => Copy(current, specular: ParseColor(parts, location)),
-                "Ns" => Copy(current, specularExponent: ParseSingle(parts, location)),
-                "d" => Copy(current, opacity: ParseSingle(parts, location)),
-                "Ni" => Copy(current, refractiveIndex: ParseSingle(parts, location)),
-                _ => Copy(current, illuminationModel: ParseIlluminationModel(parts, location)),
-            };
+                case "Ka":
+                case "Kd":
+                case "Ks":
+                    if (!TryParseColor(parts, location, warnings, out Vector3 color))
+                    {
+                        return current;
+                    }
+
+                    return keyword switch
+                    {
+                        "Ka" => Copy(current, ambient: color),
+                        "Kd" => Copy(current, diffuse: color),
+                        _ => Copy(current, specular: color),
+                    };
+
+                case "d":
+                    return Copy(current, opacity: ParseOpacity(parts, location, warnings));
+
+                case "Ns":
+                    return Copy(current, specularExponent: ParseSingle(parts, location));
+
+                case "Ni":
+                    return Copy(current, refractiveIndex: ParseSingle(parts, location));
+
+                default:
+                    return Copy(
+                        current,
+                        illuminationModel: ParseIlluminationModel(parts, location)
+                    );
+            }
         }
         catch (ArgumentOutOfRangeException exception)
         {
@@ -397,24 +430,79 @@ public readonly struct ObjMtlImporter
     }
 
     /// <summary>
-    /// Parses an RGB color statement such as <c>Kd r g b</c>.
+    /// Parses a color. Accepts <c>K r g b</c> and the gray shorthand <c>K value</c>.
+    /// Spectral and CIE XYZ forms are valid MTL but unsupported, so they are skipped with a warning.
+    /// Malformed values throw.
     /// </summary>
     /// <param name="parts">The split statement.</param>
     /// <param name="location">The file path and line number for error messages.</param>
+    /// <param name="warnings">The collected warnings.</param>
+    /// <param name="color">The parsed color when the method returns true.</param>
     /// <returns>The parsed color.</returns>
     /// <exception cref="FormatException">Thrown when the statement has the wrong shape or an invalid number.</exception>
-    private static Vector3 ParseColor(string[] parts, string location)
+    private static bool TryParseColor(
+        string[] parts,
+        string location,
+        List<string> warnings,
+        out Vector3 color
+    )
     {
-        if (parts.Length != 4)
+        color = Vector3.Zero;
+
+        if (parts.Length >= 2 && (parts[1] is "spectral" or "xyz"))
         {
-            throw new FormatException($"{location}: Expected '{parts[0]} r g b'.");
+            warnings.Add($"{location}: '{parts[0]} {parts[1]}' is not supported and was skipped.");
+            return false;
         }
 
-        return new Vector3(
-            ParseCoordinate(parts[1], location),
-            ParseCoordinate(parts[2], location),
-            ParseCoordinate(parts[3], location)
+        if (parts.Length == 2)
+        {
+            // Gray shorthand: the value applies to all three channels.
+            color = new Vector3(ParseCoordinate(parts[1], location));
+            return true;
+        }
+
+        if (parts.Length == 4)
+        {
+            color = new Vector3(
+                ParseCoordinate(parts[1], location),
+                ParseCoordinate(parts[2], location),
+                ParseCoordinate(parts[3], location)
+            );
+            return true;
+        }
+
+        throw new FormatException(
+            $"{location}: Expected '{parts[0]} r g b' or '{parts[0]} value'."
         );
+    }
+
+    /// <summary>
+    /// Parses the opacity of a <c>d</c> statement, with or without the <c>-halo</c> option.
+    /// </summary>
+    /// <param name="parts">The split statement.</param>
+    /// <param name="location">The file path and line number for error messages.</param>
+    /// <param name="warnings">The collected warnings.</param>
+    /// <returns>The opacity value.</returns>
+    /// <exception cref="FormatException">Thrown when the statement has the wrong shape.</exception>
+    private static float ParseOpacity(string[] parts, string location, List<string> warnings)
+    {
+        string[] values = parts[1..];
+
+        if (values.Length == 2 && values[0] == "-halo")
+        {
+            warnings.Add(
+                $"{location}: The '-halo' option of 'd' is not supported; the value is used."
+            );
+            values = [values[1]];
+        }
+
+        if (values.Length != 1)
+        {
+            throw new FormatException($"{location}: Expected 'd value' or 'd -halo value'.");
+        }
+
+        return ParseCoordinate(values[0], location);
     }
 
     /// <summary>

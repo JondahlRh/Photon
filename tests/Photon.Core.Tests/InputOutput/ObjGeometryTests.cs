@@ -287,6 +287,76 @@ public sealed class ObjGeometryTests : IDisposable
         Assert.Contains("map_Kd", warning, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Checks that gray color shorthand is accepted and the <c>-halo</c> option is reported.
+    /// </summary>
+    [Fact]
+    public void LoadAcceptsGrayShorthandAndWarnsAboutHalo()
+    {
+        WriteFile("short.mtl", "newmtl Red\nKa 0.2\nKs 0.3\nd -halo 0.5\n");
+        string path = WriteFile(
+            "short.obj",
+            """
+            mtllib short.mtl
+            v 0 0 0
+            v 1 0 0
+            v 0 1 0
+            usemtl Red
+            f 1 2 3
+            """
+        );
+
+        ImportResult result = ObjMtlImporter.Load(path);
+        Material material = Assert.Single(result.Model.Meshes).Material;
+
+        Assert.Equal(new Vector3(0.2f), material.Ambient);
+        Assert.Equal(new Vector3(0.3f), material.Specular);
+        Assert.Equal(0.5f, material.Opacity);
+        string warning = Assert.Single(result.Warnings);
+        Assert.Contains("-halo", warning, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Checks that a U-shaped polygon is triangulated without filling its notch.
+    /// </summary>
+    [Fact]
+    public void AddFaceTriangulatesConcavePolygonWithoutFillingNotch()
+    {
+        var builder = new ModelBuilder();
+        Vector3[] outline =
+        [
+            new(0, 0, 0),
+            new(3, 0, 0),
+            new(3, 3, 0),
+            new(2, 3, 0),
+            new(2, 1, 0),
+            new(1, 1, 0),
+            new(1, 3, 0),
+            new(0, 3, 0),
+        ];
+
+        foreach (Vector3 point in outline)
+        {
+            builder.AddPosition(point);
+        }
+
+        builder.AddFace([new(0), new(1), new(2), new(3), new(4), new(5), new(6), new(7)]);
+
+        Mesh mesh = Assert.Single(builder.Build().Meshes);
+        float area = 0f;
+
+        foreach (MeshTriangle triangle in mesh.Triangles)
+        {
+            Vector3 a = mesh.Vertices[triangle.Index0];
+            Vector3 b = mesh.Vertices[triangle.Index1];
+            Vector3 c = mesh.Vertices[triangle.Index2];
+            area += MathF.Abs(Vector3.Cross(b - a, c - a).Z) / 2f;
+        }
+
+        Assert.Equal(6, mesh.Triangles.Count);
+        Assert.Equal(7f, area, 4);
+    }
+
     /// <inheritdoc/>
     public void Dispose()
     {
