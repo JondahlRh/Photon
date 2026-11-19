@@ -139,20 +139,29 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         StatusText = "Importing model...";
 
-        ImportResult result = await Task.Run(() => ObjMtlImporter.Load(path));
-        Model model = result.Model;
-
-        ModelPath = path;
-        StatusText = $"Loaded {Path.GetFileName(path)}: {model.TriangleCount} triangles.";
-
-        foreach (string warning in result.Warnings)
+        try
         {
-            LogLoadedModelWarning(warning);
+            ImportResult result = await Task.Run(() => ObjMtlImporter.Load(path));
+            Model model = result.Model;
+
+            ModelPath = path;
+            StatusText = $"Loaded {Path.GetFileName(path)}: {model.TriangleCount} triangles.";
+
+            foreach (string warning in result.Warnings)
+            {
+                LogLoadedModelWarning(warning);
+            }
+
+            LogLoadedModel(path, model.TriangleCount);
+
+            return model;
         }
-
-        LogLoadedModel(path, model.TriangleCount);
-
-        return model;
+        catch (Exception exception)
+        {
+            StatusText = $"Import failed: {exception.Message}";
+            LogLoadingModelException(exception.Message);
+            throw;
+        }
     }
 
     /// <summary>Starts the rendering process (test: simulates progress).</summary>
@@ -199,17 +208,20 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private partial void LogRenderStarted(int width, int height, int samples, int depth);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Loading model {path}")]
-    private partial void LogLoadingModelPath(String path);
+    private partial void LogLoadingModelPath(string path);
 
     [LoggerMessage(
         Level = LogLevel.Information,
         Message = "Loaded {path}: {triangleCount} triangles."
     )]
-    private partial void LogLoadedModel(String path, int triangleCount);
+    private partial void LogLoadedModel(string path, int triangleCount);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "{message}")]
-    private partial void LogSimpleMessage(String message);
+    private partial void LogSimpleMessage(string message);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "{warning}")]
-    private partial void LogLoadedModelWarning(String warning);
+    private partial void LogLoadedModelWarning(string warning);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "{exception}")]
+    private partial void LogLoadingModelException(string exception);
 }
