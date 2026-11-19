@@ -89,9 +89,9 @@ public sealed class RayTracerTests
     public void ExampleCubeRendersAndIsExported()
     {
         const int imageSize = 64;
-        Model model = ObjMtlImporter.Load(
-            Path.Combine(FindRepositoryRoot(), "examples", "cube.obj")
-        );
+        Model model = ObjMtlImporter
+            .Load(Path.Combine(FindRepositoryRoot(), "examples", "cube.obj"))
+            .Model;
 
         // Image plane at z = 5 spans 4 units; the projection center lies 4 units in front of it.
         Matrix4x4 viewToWorld =
