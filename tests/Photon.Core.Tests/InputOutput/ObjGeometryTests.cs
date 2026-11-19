@@ -357,6 +357,93 @@ public sealed class ObjGeometryTests : IDisposable
         Assert.Equal(7f, area, 4);
     }
 
+    /// <summary>
+    /// Checks that the homogeneous coordinate of a vertex is applied by dividing the coordinates by it.
+    /// </summary>
+    [Fact]
+    public void LoadAppliesHomogeneousCoordinateOfVertex()
+    {
+        string path = WriteFile(
+            "homogeneous.obj",
+            """
+            v 2 4 6 2
+            v 1 0 0
+            v 0 1 0
+            f 1 2 3
+            """
+        );
+
+        Mesh mesh = Assert.Single(ObjMtlImporter.Load(path).Model.Meshes);
+
+        Assert.Equal(new Vector3(1f, 2f, 3f), mesh.Vertices[0]);
+    }
+
+    /// <summary>
+    /// Checks that a zero homogeneous coordinate is rejected with the line number.
+    /// </summary>
+    [Fact]
+    public void LoadReportsZeroHomogeneousCoordinateWithLineNumber()
+    {
+        string path = WriteFile(
+            "zero-w.obj",
+            """
+            v 1 2 3 0
+            v 1 0 0
+            v 0 1 0
+            f 1 2 3
+            """
+        );
+
+        FormatException exception = Assert.Throws<FormatException>(() => ObjMtlImporter.Load(path));
+
+        Assert.Contains(path + ":1:", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Checks that vertex colors are skipped with a single warning and the geometry is kept.
+    /// </summary>
+    [Fact]
+    public void LoadSkipsVertexColorsWithWarning()
+    {
+        string path = WriteFile(
+            "colors.obj",
+            """
+            v 0 0 0 1 0 0
+            v 1 0 0 0 1 0
+            v 0 1 0 0 0 1
+            f 1 2 3
+            """
+        );
+
+        ImportResult result = ObjMtlImporter.Load(path);
+
+        Assert.Equal(1, result.Model.TriangleCount);
+        string warning = Assert.Single(result.Warnings);
+        Assert.Contains("Vertex colors", warning, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Checks that a self-intersecting quad is rejected instead of being triangulated.
+    /// </summary>
+    [Fact]
+    public void LoadRejectsSelfIntersectingQuad()
+    {
+        string path = WriteFile(
+            "bowtie.obj",
+            """
+            v 3 2 0
+            v 5 0 0
+            v 3 5 0
+            v 4 0 0
+            f 1 2 3 4
+            """
+        );
+
+        FormatException exception = Assert.Throws<FormatException>(() => ObjMtlImporter.Load(path));
+
+        Assert.Contains("self-intersecting", exception.Message, StringComparison.Ordinal);
+    }
+
     /// <inheritdoc/>
     public void Dispose()
     {

@@ -153,12 +153,13 @@ public sealed class ModelBuilder
     }
 
     /// <summary>
-    /// Adds a face with three or more corners. Faces with more corners are split into a
-    /// triangle fan around the first corner, which is correct for convex polygons.
+    /// Adds a face with three or more corners. Faces with more corners are validated as simple
+    /// polygons and split by ear clipping, so concave faces are triangulated correctly.
     /// </summary>
-    /// <param name="corners">The corners in counter-clockwise order seen from the front.</param>
+    /// <param name="corners">The corners in order around the face.</param>
     /// <exception cref="ArgumentException">Thrown if fewer than three corners are given.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Thrown if an index refers to no position or normal.</exception>
+    /// <exception cref="FormatException">Thrown if the polygon is degenerate or self-intersecting.</exception>
     public void AddFace(ReadOnlySpan<FaceCorner> corners)
     {
         if (corners.Length < 3)
@@ -204,7 +205,28 @@ public sealed class ModelBuilder
             points[i] = _positions[corners[i].PositionIndex];
         }
 
+        // A triangle is always simple, so it needs no checks and is emitted as it is.
+        if (points.Length == 3)
+        {
+            EmitTriangle(corners[0], corners[1], corners[2]);
+            return;
+        }
+
         Vector3 normal = NewellNormal(points);
+
+        if (VectorMath.IsNearlyZero(normal))
+        {
+            throw new FormatException("The polygon is degenerate: its corners lie on one line.");
+        }
+
+        // Ear clipping only guarantees a correct result for simple polygons, so the
+        // polygon is checked first. Otherwise invalid geometry would pass unnoticed.
+        if (HasSelfIntersection(points, normal))
+        {
+            throw new FormatException(
+                "The polygon is self-intersecting and cannot be triangulated."
+            );
+        }
         var remaining = new List<int>(corners.Length);
 
         for (int i = 0; i < corners.Length; i++)
@@ -241,6 +263,91 @@ public sealed class ModelBuilder
         }
 
         EmitTriangle(corners[remaining[0]], corners[remaining[1]], corners[remaining[2]]);
+    }
+
+    /// <summary>
+    /// Determines whether two edges that are not neighbours in the polygon touch or cross each other.
+    /// </summary>
+    /// <param name="points">The polygon corners in order.</param>
+    /// <param name="normal">The polygon normal, which defines the orientation of the plane.</param>
+    /// <returns><c>true</c> if the polygon intersects itself.</returns>
+    private static bool HasSelfIntersection(Vector3[] points, Vector3 normal)
+    {
+        int count = points.Length;
+
+        for (int i = 0; i < count; i++)
+        {
+            int iNext = (i + 1) % count;
+
+            // Edges next to edge i share a corner with it and are skipped. Edge count - 1
+            // is also next to edge 0, so it is skipped when i is 0.
+            for (int j = i + 2; j < count; j++)
+            {
+                if (i == 0 && j == count - 1)
+                {
+                    continue;
+                }
+
+                int jNext = (j + 1) % count;
+
+                if (SegmentsTouch(points[i], points[iNext], points[j], points[jNext], normal))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Determines whether two line segments in the polygon's plane cross or touch.
+    /// </summary>
+    private static bool SegmentsTouch(
+        Vector3 p1,
+        Vector3 p2,
+        Vector3 q1,
+        Vector3 q2,
+        Vector3 normal
+    )
+    {
+        float d1 = Orientation(q1, q2, p1, normal);
+        float d2 = Orientation(q1, q2, p2, normal);
+        float d3 = Orientation(p1, p2, q1, normal);
+        float d4 = Orientation(p1, p2, q2, normal);
+
+        // Proper crossing: each segment has its endpoints on opposite sides of the other.
+        if (MathF.Sign(d1) * MathF.Sign(d2) < 0 && MathF.Sign(d3) * MathF.Sign(d4) < 0)
+        {
+            return true;
+        }
+
+        // Touching: an endpoint lies exactly on the other segment.
+        return (d1 == 0f && IsOnSegment(q1, q2, p1))
+            || (d2 == 0f && IsOnSegment(q1, q2, p2))
+            || (d3 == 0f && IsOnSegment(p1, p2, q1))
+            || (d4 == 0f && IsOnSegment(p1, p2, q2));
+    }
+
+    /// <summary>
+    /// Gets the signed side of point <paramref name="p"/> relative to the line a-b, seen along the normal.
+    /// </summary>
+    private static float Orientation(Vector3 a, Vector3 b, Vector3 p, Vector3 normal)
+    {
+        return Vector3.Dot(Vector3.Cross(b - a, p - a), normal);
+    }
+
+    /// <summary>
+    /// Determines whether a point that lies on the line through a and b is within the segment a-b.
+    /// </summary>
+    private static bool IsOnSegment(Vector3 a, Vector3 b, Vector3 p)
+    {
+        return MathF.Min(a.X, b.X) <= p.X
+            && p.X <= MathF.Max(a.X, b.X)
+            && MathF.Min(a.Y, b.Y) <= p.Y
+            && p.Y <= MathF.Max(a.Y, b.Y)
+            && MathF.Min(a.Z, b.Z) <= p.Z
+            && p.Z <= MathF.Max(a.Z, b.Z);
     }
 
     /// <summary>

@@ -41,6 +41,7 @@ public readonly struct ObjMtlImporter
         var definedMaterials = new HashSet<string>(StringComparer.Ordinal);
         var warnings = new List<string>();
         var warnedKeywords = new HashSet<string>(StringComparer.Ordinal);
+        bool warnedVertexColors = false;
 
         List<Material> materials = new List<Material> { Material.Default };
         Dictionary<string, int> materialLookup = new Dictionary<string, int>(
@@ -77,10 +78,11 @@ public readonly struct ObjMtlImporter
             {
                 case "v":
                 {
-                    if (parts.Length != 4)
+                    if (parts.Length != 4 && parts.Length != 5 && parts.Length != 7)
                     {
                         throw new FormatException(
-                            $"{location}: Expected a vertex in the form 'v x y z'."
+                            $"{location}: Expected a vertex in the form 'v x y z', "
+                                + "'v x y z w' or 'v x y z r g b'."
                         );
                     }
 
@@ -88,7 +90,44 @@ public readonly struct ObjMtlImporter
                     float y = ParseCoordinate(parts[2], location);
                     float z = ParseCoordinate(parts[3], location);
 
-                    positions.Add(new Vector3(x, y, z));
+                    // The optional w is the homogeneous coordinate; the point is (x/w, y/w, z/w).
+                    float w = parts.Length == 5 ? ParseCoordinate(parts[4], location) : 1f;
+
+                    if (parts.Length == 7)
+                    {
+                        // Vertex colors are a common extension. They are validated and then ignored.
+                        for (int i = 4; i < 7; i++)
+                        {
+                            ParseCoordinate(parts[i], location);
+                        }
+
+                        if (!warnedVertexColors)
+                        {
+                            warnedVertexColors = true;
+                            warnings.Add(
+                                $"{location}: Vertex colors ('v x y z r g b') are not supported "
+                                    + "and were skipped."
+                            );
+                        }
+                    }
+
+                    if (w == 0f)
+                    {
+                        throw new FormatException(
+                            $"{location}: The homogeneous coordinate 'w' must not be zero."
+                        );
+                    }
+
+                    var position = new Vector3(x / w, y / w, z / w);
+
+                    if (!VectorMath.IsFinite(position))
+                    {
+                        throw new FormatException(
+                            $"{location}: The vertex coordinates are out of range."
+                        );
+                    }
+
+                    positions.Add(position);
                     break;
                 }
                 case "f":
