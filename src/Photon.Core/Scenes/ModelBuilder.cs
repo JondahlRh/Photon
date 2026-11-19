@@ -1,5 +1,5 @@
 ﻿// -----------------------------------------------------------------------------
-// Author:        Luca Lengl
+// Author:        Luca Lengl, MJZgh
 // AI Assistance: Claude for Information, Bug and Warning
 // -----------------------------------------------------------------------------
 
@@ -71,6 +71,11 @@ public sealed class ModelBuilder
     /// Gets the number of normals added so far.
     /// </summary>
     public int NormalCount => _normals.Count;
+
+    /// <summary>
+    /// Relative tolerance for geometric tests, as a fraction of the squared size of the polygon.
+    /// </summary>
+    private const float RelativeTolerance = 1e-6f;
 
     /// <summary>
     /// Adds a vertex position.
@@ -153,12 +158,13 @@ public sealed class ModelBuilder
     }
 
     /// <summary>
-    /// Adds a face with three or more corners. Faces with more corners are split into a
-    /// triangle fan around the first corner, which is correct for convex polygons.
+    /// Adds a face with three or more corners. Faces with more corners are validated as simple
+    /// polygons and split by ear clipping, so concave faces are triangulated correctly.
     /// </summary>
-    /// <param name="corners">The corners in counter-clockwise order seen from the front.</param>
+    /// <param name="corners">The corners in order around the face.</param>
     /// <exception cref="ArgumentException">Thrown if fewer than three corners are given.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Thrown if an index refers to no position or normal.</exception>
+    /// <exception cref="FormatException">Thrown if the polygon is degenerate or self-intersecting.</exception>
     public void AddFace(ReadOnlySpan<FaceCorner> corners)
     {
         if (corners.Length < 3)
@@ -187,12 +193,291 @@ public sealed class ModelBuilder
             }
         }
 
-        for (var i = 1; i < corners.Length - 1; i++)
+        AddTriangulated(corners);
+    }
+
+    /// <summary>
+    /// Splits a simple polygon into triangles by ear clipping, so concave polygons are triangulated correctly.
+    /// </summary>
+    /// <param name="corners">The polygon corners in order.</param>
+    /// <exception cref="FormatException">Thrown when the polygon is self-intersecting and cannot be triangulated.</exception>
+    private void AddTriangulated(ReadOnlySpan<FaceCorner> corners)
+    {
+        var points = new Vector3[corners.Length];
+
+        for (int i = 0; i < corners.Length; i++)
         {
-            _currentGroup.Corners.Add(corners[0]);
-            _currentGroup.Corners.Add(corners[i]);
-            _currentGroup.Corners.Add(corners[i + 1]);
+            points[i] = _positions[corners[i].PositionIndex];
         }
+
+        float size = BoundingBoxDiagonalSquared(points);
+        float tolerance = RelativeTolerance * size;
+        Vector3 normal = NewellNormal(points);
+
+        if (normal.Length() <= tolerance)
+        {
+            throw new FormatException("The polygon is degenerate: its corners lie on one line.");
+        }
+
+        normal = Vector3.Normalize(normal);
+
+        // Ear clipping only guarantees a correct result for simple polygons, so the
+        // polygon is checked first. Otherwise invalid geometry would pass unnoticed.
+        if (HasSelfIntersection(points, normal, tolerance))
+        {
+            throw new FormatException(
+                "The polygon is self-intersecting and cannot be triangulated."
+            );
+        }
+        var remaining = new List<int>(corners.Length);
+
+        for (int i = 0; i < corners.Length; i++)
+        {
+            remaining.Add(i);
+        }
+
+        while (remaining.Count > 3)
+        {
+            bool clipped = false;
+
+            for (int k = 0; k < remaining.Count && !clipped; k++)
+            {
+                int prev = remaining[(k + remaining.Count - 1) % remaining.Count];
+                int curr = remaining[k];
+                int next = remaining[(k + 1) % remaining.Count];
+
+                if (!IsEar(points, remaining, prev, curr, next, normal))
+                {
+                    continue;
+                }
+
+                EmitTriangle(corners[prev], corners[curr], corners[next]);
+                remaining.RemoveAt(k);
+                clipped = true;
+            }
+
+            if (!clipped)
+            {
+                throw new FormatException(
+                    "The polygon is self-intersecting and cannot be triangulated."
+                );
+            }
+        }
+
+        EmitTriangle(corners[remaining[0]], corners[remaining[1]], corners[remaining[2]]);
+    }
+
+    /// <summary>
+    /// Gets the squared length of the diagonal of the bounding box of the points.
+    /// </summary>
+    /// <param name="points">The points to measure.</param>
+    private static float BoundingBoxDiagonalSquared(Vector3[] points)
+    {
+        Vector3 min = points[0];
+        Vector3 max = points[0];
+
+        foreach (Vector3 point in points)
+        {
+            min = Vector3.Min(min, point);
+            max = Vector3.Max(max, point);
+        }
+
+        return (max - min).LengthSquared();
+    }
+
+    /// <summary>
+    /// Determines whether two edges that are not neighbours in the polygon touch or cross each other.
+    /// </summary>
+    /// <param name="points">The polygon corners in order.</param>
+    /// <param name="normal">The polygon normal, which defines the orientation of the plane.</param>
+    /// <param name="tolerance">The distance below which a point counts as lying on a line.</param>
+    /// /// <returns><c>true</c> if the polygon intersects itself.</returns>
+    private static bool HasSelfIntersection(Vector3[] points, Vector3 normal, float tolerance)
+    {
+        int count = points.Length;
+
+        for (int i = 0; i < count; i++)
+        {
+            int iNext = (i + 1) % count;
+
+            // Edges next to edge i share a corner with it and are skipped. Edge count - 1
+            // is also next to edge 0, so it is skipped when i is 0.
+            for (int j = i + 2; j < count; j++)
+            {
+                if (i == 0 && j == count - 1)
+                {
+                    continue;
+                }
+
+                int jNext = (j + 1) % count;
+
+                if (
+                    SegmentsTouch(
+                        points[i],
+                        points[iNext],
+                        points[j],
+                        points[jNext],
+                        normal,
+                        tolerance
+                    )
+                )
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Determines whether two line segments in the polygon's plane cross or touch.
+    /// </summary>
+    /// <param name="p1">The first endpoint of the first segment.</param>
+    /// <param name="p2">The second endpoint of the first segment.</param>
+    /// <param name="q1">The first endpoint of the second segment.</param>
+    /// <param name="q2">The second endpoint of the second segment.</param>
+    /// <param name="normal">The unit normal of the polygon plane.</param>
+    /// <param name="tolerance">The distance below which a point counts as lying on a line.</param>
+    private static bool SegmentsTouch(
+        Vector3 p1,
+        Vector3 p2,
+        Vector3 q1,
+        Vector3 q2,
+        Vector3 normal,
+        float tolerance
+    )
+    {
+        float d1 = Side(q1, q2, p1, normal, tolerance);
+        float d2 = Side(q1, q2, p2, normal, tolerance);
+        float d3 = Side(p1, p2, q1, normal, tolerance);
+        float d4 = Side(p1, p2, q2, normal, tolerance);
+
+        // Proper crossing: each segment has its endpoints on opposite sides of the other.
+        if (d1 * d2 < 0 && d3 * d4 < 0)
+        {
+            return true;
+        }
+
+        // Touching: an endpoint lies exactly on the other segment.
+        return (d1 == 0f && IsOnSegment(q1, q2, p1))
+            || (d2 == 0f && IsOnSegment(q1, q2, p2))
+            || (d3 == 0f && IsOnSegment(p1, p2, q1))
+            || (d4 == 0f && IsOnSegment(p1, p2, q2));
+    }
+
+    /// <summary>
+    /// Gets the side of point <paramref name="p"/> relative to the line a-b: 1, -1, or 0 if it lies on the line.
+    /// </summary>
+    /// <param name="a">The first point of the line.</param>
+    /// <param name="b">The second point of the line.</param>
+    /// <param name="p">The point to test.</param>
+    /// <param name="normal">The unit normal of the polygon plane.</param>
+    /// <param name="tolerance">The distance below which a point counts as lying on a line.</param>
+    private static int Side(Vector3 a, Vector3 b, Vector3 p, Vector3 normal, float tolerance)
+    {
+        float value = Vector3.Dot(Vector3.Cross(b - a, p - a), normal);
+
+        if (MathF.Abs(value) <= tolerance)
+        {
+            return 0;
+        }
+
+        return value > 0f ? 1 : -1;
+    }
+
+    /// <summary>
+    /// Determines whether a point that lies on the line through a and b is within the segment a-b.
+    /// </summary>
+    /// <param name="a">The first endpoint of the segment.</param>
+    /// <param name="b">The second endpoint of the segment.</param>
+    /// <param name="p">The point to test.</param>
+    private static bool IsOnSegment(Vector3 a, Vector3 b, Vector3 p)
+    {
+        return MathF.Min(a.X, b.X) <= p.X
+            && p.X <= MathF.Max(a.X, b.X)
+            && MathF.Min(a.Y, b.Y) <= p.Y
+            && p.Y <= MathF.Max(a.Y, b.Y)
+            && MathF.Min(a.Z, b.Z) <= p.Z
+            && p.Z <= MathF.Max(a.Z, b.Z);
+    }
+
+    /// <summary>
+    /// Adds one triangle to the current group.
+    /// </summary>
+    private void EmitTriangle(FaceCorner a, FaceCorner b, FaceCorner c)
+    {
+        _currentGroup.Corners.Add(a);
+        _currentGroup.Corners.Add(b);
+        _currentGroup.Corners.Add(c);
+    }
+
+    /// <summary>
+    /// Determines whether the corner at <paramref name="curr"/> can be clipped as an ear.
+    /// </summary>
+    private static bool IsEar(
+        Vector3[] points,
+        List<int> remaining,
+        int prev,
+        int curr,
+        int next,
+        Vector3 normal
+    )
+    {
+        Vector3 a = points[prev];
+        Vector3 b = points[curr];
+        Vector3 c = points[next];
+
+        // A reflex corner cannot be an ear.
+        if (Vector3.Dot(Vector3.Cross(b - a, c - b), normal) < 0f)
+        {
+            return false;
+        }
+
+        foreach (int other in remaining)
+        {
+            if (other == prev || other == curr || other == next)
+            {
+                continue;
+            }
+
+            if (IsInsideTriangle(points[other], a, b, c, normal))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Determines whether a point lies inside or on the edge of a triangle in the polygon's plane.
+    /// </summary>
+    private static bool IsInsideTriangle(Vector3 p, Vector3 a, Vector3 b, Vector3 c, Vector3 normal)
+    {
+        return Vector3.Dot(Vector3.Cross(b - a, p - a), normal) >= 0f
+            && Vector3.Dot(Vector3.Cross(c - b, p - b), normal) >= 0f
+            && Vector3.Dot(Vector3.Cross(a - c, p - c), normal) >= 0f;
+    }
+
+    /// <summary>
+    /// Calculates the polygon normal with Newell's method. Its length is twice the polygon area.
+    /// </summary>
+    private static Vector3 NewellNormal(Vector3[] points)
+    {
+        var normal = Vector3.Zero;
+
+        for (int i = 0; i < points.Length; i++)
+        {
+            Vector3 a = points[i];
+            Vector3 b = points[(i + 1) % points.Length];
+
+            normal.X += (a.Y - b.Y) * (a.Z + b.Z);
+            normal.Y += (a.Z - b.Z) * (a.X + b.X);
+            normal.Z += (a.X - b.X) * (a.Y + b.Y);
+        }
+
+        return normal;
     }
 
     /// <summary>
