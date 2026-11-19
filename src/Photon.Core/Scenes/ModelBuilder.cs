@@ -73,6 +73,11 @@ public sealed class ModelBuilder
     public int NormalCount => _normals.Count;
 
     /// <summary>
+    /// Relative tolerance for geometric tests, as a fraction of the squared size of the polygon.
+    /// </summary>
+    private const float RelativeTolerance = 1e-6f;
+
+    /// <summary>
     /// Adds a vertex position.
     /// </summary>
     /// <param name="position">The position in world coordinates.</param>
@@ -205,23 +210,20 @@ public sealed class ModelBuilder
             points[i] = _positions[corners[i].PositionIndex];
         }
 
-        // A triangle is always simple, so it needs no checks and is emitted as it is.
-        if (points.Length == 3)
-        {
-            EmitTriangle(corners[0], corners[1], corners[2]);
-            return;
-        }
-
+        float size = BoundingBoxDiagonalSquared(points);
+        float tolerance = RelativeTolerance * size;
         Vector3 normal = NewellNormal(points);
 
-        if (VectorMath.IsNearlyZero(normal))
+        if (normal.Length() <= tolerance)
         {
             throw new FormatException("The polygon is degenerate: its corners lie on one line.");
         }
 
+        normal = Vector3.Normalize(normal);
+
         // Ear clipping only guarantees a correct result for simple polygons, so the
         // polygon is checked first. Otherwise invalid geometry would pass unnoticed.
-        if (HasSelfIntersection(points, normal))
+        if (HasSelfIntersection(points, normal, tolerance))
         {
             throw new FormatException(
                 "The polygon is self-intersecting and cannot be triangulated."
@@ -266,12 +268,31 @@ public sealed class ModelBuilder
     }
 
     /// <summary>
+    /// Gets the squared length of the diagonal of the bounding box of the points.
+    /// </summary>
+    /// <param name="points">The points to measure.</param>
+    private static float BoundingBoxDiagonalSquared(Vector3[] points)
+    {
+        Vector3 min = points[0];
+        Vector3 max = points[0];
+
+        foreach (Vector3 point in points)
+        {
+            min = Vector3.Min(min, point);
+            max = Vector3.Max(max, point);
+        }
+
+        return (max - min).LengthSquared();
+    }
+
+    /// <summary>
     /// Determines whether two edges that are not neighbours in the polygon touch or cross each other.
     /// </summary>
     /// <param name="points">The polygon corners in order.</param>
     /// <param name="normal">The polygon normal, which defines the orientation of the plane.</param>
-    /// <returns><c>true</c> if the polygon intersects itself.</returns>
-    private static bool HasSelfIntersection(Vector3[] points, Vector3 normal)
+    /// <param name="tolerance">The distance below which a point counts as lying on a line.</param>
+    /// /// <returns><c>true</c> if the polygon intersects itself.</returns>
+    private static bool HasSelfIntersection(Vector3[] points, Vector3 normal, float tolerance)
     {
         int count = points.Length;
 
@@ -290,7 +311,16 @@ public sealed class ModelBuilder
 
                 int jNext = (j + 1) % count;
 
-                if (SegmentsTouch(points[i], points[iNext], points[j], points[jNext], normal))
+                if (
+                    SegmentsTouch(
+                        points[i],
+                        points[iNext],
+                        points[j],
+                        points[jNext],
+                        normal,
+                        tolerance
+                    )
+                )
                 {
                     return true;
                 }
@@ -303,21 +333,28 @@ public sealed class ModelBuilder
     /// <summary>
     /// Determines whether two line segments in the polygon's plane cross or touch.
     /// </summary>
+    /// <param name="p1">The first endpoint of the first segment.</param>
+    /// <param name="p2">The second endpoint of the first segment.</param>
+    /// <param name="q1">The first endpoint of the second segment.</param>
+    /// <param name="q2">The second endpoint of the second segment.</param>
+    /// <param name="normal">The unit normal of the polygon plane.</param>
+    /// <param name="tolerance">The distance below which a point counts as lying on a line.</param>
     private static bool SegmentsTouch(
         Vector3 p1,
         Vector3 p2,
         Vector3 q1,
         Vector3 q2,
-        Vector3 normal
+        Vector3 normal,
+        float tolerance
     )
     {
-        float d1 = Orientation(q1, q2, p1, normal);
-        float d2 = Orientation(q1, q2, p2, normal);
-        float d3 = Orientation(p1, p2, q1, normal);
-        float d4 = Orientation(p1, p2, q2, normal);
+        float d1 = Side(q1, q2, p1, normal, tolerance);
+        float d2 = Side(q1, q2, p2, normal, tolerance);
+        float d3 = Side(p1, p2, q1, normal, tolerance);
+        float d4 = Side(p1, p2, q2, normal, tolerance);
 
         // Proper crossing: each segment has its endpoints on opposite sides of the other.
-        if (MathF.Sign(d1) * MathF.Sign(d2) < 0 && MathF.Sign(d3) * MathF.Sign(d4) < 0)
+        if (d1 * d2 < 0 && d3 * d4 < 0)
         {
             return true;
         }
@@ -330,16 +367,31 @@ public sealed class ModelBuilder
     }
 
     /// <summary>
-    /// Gets the signed side of point <paramref name="p"/> relative to the line a-b, seen along the normal.
+    /// Gets the side of point <paramref name="p"/> relative to the line a-b: 1, -1, or 0 if it lies on the line.
     /// </summary>
-    private static float Orientation(Vector3 a, Vector3 b, Vector3 p, Vector3 normal)
+    /// <param name="a">The first point of the line.</param>
+    /// <param name="b">The second point of the line.</param>
+    /// <param name="p">The point to test.</param>
+    /// <param name="normal">The unit normal of the polygon plane.</param>
+    /// <param name="tolerance">The distance below which a point counts as lying on a line.</param>
+    private static int Side(Vector3 a, Vector3 b, Vector3 p, Vector3 normal, float tolerance)
     {
-        return Vector3.Dot(Vector3.Cross(b - a, p - a), normal);
+        float value = Vector3.Dot(Vector3.Cross(b - a, p - a), normal);
+
+        if (MathF.Abs(value) <= tolerance)
+        {
+            return 0;
+        }
+
+        return value > 0f ? 1 : -1;
     }
 
     /// <summary>
     /// Determines whether a point that lies on the line through a and b is within the segment a-b.
     /// </summary>
+    /// <param name="a">The first endpoint of the segment.</param>
+    /// <param name="b">The second endpoint of the segment.</param>
+    /// <param name="p">The point to test.</param>
     private static bool IsOnSegment(Vector3 a, Vector3 b, Vector3 p)
     {
         return MathF.Min(a.X, b.X) <= p.X

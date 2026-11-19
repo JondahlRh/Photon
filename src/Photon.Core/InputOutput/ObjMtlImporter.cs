@@ -37,6 +37,7 @@ public readonly struct ObjMtlImporter
         List<Vector3> positions = new List<Vector3>();
         List<FaceCorner[]> faces = new List<FaceCorner[]>();
         List<int> materialIndices = new List<int>();
+        List<int> faceLines = new List<int>();
         List<Vector3> normals = new List<Vector3>();
         var definedMaterials = new HashSet<string>(StringComparer.Ordinal);
         var warnings = new List<string>();
@@ -154,6 +155,7 @@ public readonly struct ObjMtlImporter
                     faces.Add(corners);
 
                     materialIndices.Add(currentMaterialIndex);
+                    faceLines.Add(lineNumber);
                     break;
                 }
 
@@ -295,7 +297,14 @@ public readonly struct ObjMtlImporter
                 activeMaterialIndex = materialIndex;
             }
 
-            builder.AddFace(faces[i]);
+            try
+            {
+                builder.AddFace(faces[i]);
+            }
+            catch (FormatException exception)
+            {
+                throw new FormatException($"{path}:{faceLines[i]}: {exception.Message}", exception);
+            }
         }
         return new ImportResult(builder.Build(), warnings);
     }

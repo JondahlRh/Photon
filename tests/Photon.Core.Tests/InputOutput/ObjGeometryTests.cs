@@ -1,6 +1,6 @@
 // -----------------------------------------------------------------------------
 // Author:        MJZgh
-// AI Assistance: Claude (test generation)
+// AI Assistance: Claude (test generation) and Code feedback
 // -----------------------------------------------------------------------------
 using System.Numerics;
 using Photon.Core.InputOutput;
@@ -442,6 +442,71 @@ public sealed class ObjGeometryTests : IDisposable
         FormatException exception = Assert.Throws<FormatException>(() => ObjMtlImporter.Load(path));
 
         Assert.Contains("self-intersecting", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Checks that a triangle whose corners lie on one line is rejected.
+    /// </summary>
+    [Fact]
+    public void LoadRejectsDegenerateTriangle()
+    {
+        string path = WriteFile(
+            "line.obj",
+            """
+            v 0 0 0
+            v 1 0 0
+            v 2 0 0
+            f 1 2 3
+            """
+        );
+
+        FormatException exception = Assert.Throws<FormatException>(() => ObjMtlImporter.Load(path));
+
+        Assert.Contains("degenerate", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Checks that a valid quad with a small size is accepted.
+    /// </summary>
+    [Fact]
+    public void LoadAcceptsSmallQuad()
+    {
+        string path = WriteFile(
+            "small.obj",
+            """
+            v 0 0 0
+            v 0.001 0 0
+            v 0.001 0.001 0
+            v 0 0.001 0
+            f 1 2 3 4
+            """
+        );
+
+        Model model = ObjMtlImporter.Load(path).Model;
+
+        Assert.Equal(2, model.TriangleCount);
+    }
+
+    /// <summary>
+    /// Checks that a self-intersecting face is reported with its file and line.
+    /// </summary>
+    [Fact]
+    public void LoadReportsSelfIntersectionWithFileAndLine()
+    {
+        string path = WriteFile(
+            "bowtie-line.obj",
+            """
+            v 3 2 0
+            v 5 0 0
+            v 3 5 0
+            v 4 0 0
+            f 1 2 3 4
+            """
+        );
+
+        FormatException exception = Assert.Throws<FormatException>(() => ObjMtlImporter.Load(path));
+
+        Assert.Contains(path + ":5:", exception.Message, StringComparison.Ordinal);
     }
 
     /// <inheritdoc/>
