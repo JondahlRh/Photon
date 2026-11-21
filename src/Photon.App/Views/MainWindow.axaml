@@ -171,15 +171,7 @@
 
       <Grid Margin="12">
         <Border Background="White" BorderBrush="Gray" BorderThickness="1">
-          <Grid>
-            <TextBlock
-              Text="[ Render result ]"
-              Foreground="Gray"
-              HorizontalAlignment="Center"
-              VerticalAlignment="Center"
-            />
-            <Image Stretch="Uniform" />
-          </Grid>
+          <Image x:Name="RenderResultImage" Stretch="Uniform" />
         </Border>
       </Grid>
     </DockPanel>
