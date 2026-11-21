@@ -149,18 +149,36 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <returns>The imported model.</returns>
     public async Task<Model> LoadModelAsync(string path)
     {
+        LogLoadingModelPath(path);
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
         StatusText = "Importing model...";
 
-        Model model = await Task.Run(() => ObjMtlImporter.Load(path));
+        try
+        {
+            ImportResult result = await Task.Run(() => ObjMtlImporter.Load(path));
+            Model model = result.Model;
 
-        _loadedModel = model;
+                    _loadedModel = model;
 
-        ModelPath = path;
-        StatusText = $"Loaded {Path.GetFileName(path)}: {model.TriangleCount} triangles.";
+            ModelPath = path;
+            StatusText = $"Loaded {Path.GetFileName(path)}: {model.TriangleCount} triangles.";
 
-        return model;
+            foreach (string warning in result.Warnings)
+            {
+                LogLoadedModelWarning(warning);
+            }
+
+            LogLoadedModel(path, model.TriangleCount);
+
+            return model;
+        }
+        catch (Exception exception)
+        {
+            StatusText = $"Import failed: {exception.Message}";
+            LogLoadingModelException(exception.Message);
+            throw;
+        }
     }
 
     /// <summary>
@@ -205,6 +223,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         IsResultVisible = false;
         ProgressPercent = 0;
         StatusText = "Rendering...";
+        LogSimpleMessage("Rendering...");
 
         try
         {
@@ -222,6 +241,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             HasRenderResult = true;
             IsResultVisible = true;
             StatusText = "Render finished.";
+            LogSimpleMessage("Render finished.");
         }
         catch (Exception exception)
             when (exception is ArgumentException or InvalidOperationException or OverflowException)
@@ -248,10 +268,28 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Level = LogLevel.Information,
         Message = "Render started: {Width}x{Height}, {Samples} samples, max depth {Depth}"
     )]
-    private partial void LogRenderStarted(int width, int height, int samples, int depth);
+      private partial void LogRenderStarted(int width, int height, int samples, int depth);
 
     /// <summary>Logs a failed render operation.</summary>
     /// <param name="exception">The exception that caused the failure.</param>
     [LoggerMessage(Level = LogLevel.Error, Message = "Rendering failed.")]
     private partial void LogRenderFailed(Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Loading model {path}")]
+    private partial void LogLoadingModelPath(string path);
+
+    [LoggerMessage(
+        Level = LogLevel.Information,
+        Message = "Loaded {path}: {triangleCount} triangles."
+    )]
+    private partial void LogLoadedModel(string path, int triangleCount);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "{message}")]
+    private partial void LogSimpleMessage(string message);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "{warning}")]
+    private partial void LogLoadedModelWarning(string warning);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "{exception}")]
+    private partial void LogLoadingModelException(string exception);
 }
