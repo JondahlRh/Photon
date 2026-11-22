@@ -159,7 +159,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             ImportResult result = await Task.Run(() => ObjMtlImporter.Load(path));
             Model model = result.Model;
 
-                    _loadedModel = model;
+            _loadedModel = model;
 
             ModelPath = path;
             StatusText = $"Loaded {Path.GetFileName(path)}: {model.TriangleCount} triangles.";
@@ -268,7 +268,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Level = LogLevel.Information,
         Message = "Render started: {Width}x{Height}, {Samples} samples, max depth {Depth}"
     )]
-      private partial void LogRenderStarted(int width, int height, int samples, int depth);
+    private partial void LogRenderStarted(int width, int height, int samples, int depth);
 
     /// <summary>Logs a failed render operation.</summary>
     /// <param name="exception">The exception that caused the failure.</param>
