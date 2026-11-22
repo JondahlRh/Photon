@@ -26,6 +26,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Photon.App.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <EmbeddedResource
       Include="Platform/OpenGL/Shaders/preview.vert"
       LogicalName="Photon.App.Shaders.preview.vert"
