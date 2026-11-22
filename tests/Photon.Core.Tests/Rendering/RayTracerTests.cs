@@ -1,11 +1,12 @@
 // -----------------------------------------------------------------------------
-// Author:        Luca Lengl
+// Author:        Luca Lengl, Jondahl Rhenius
 // AI Assistance: Claude for Information, Bug and Warning
 // -----------------------------------------------------------------------------
 
 using System.Numerics;
 using Photon.Core.Imaging;
 using Photon.Core.InputOutput;
+using Photon.Core.Mathematics;
 using Photon.Core.Rendering;
 using Photon.Core.Scenes;
 
@@ -58,6 +59,35 @@ public sealed class RayTracerTests
         FrameBuffer target = Render(scene);
 
         AssertColor(new Vector3(1f, 0.5f, 0.5f), target.GetPixel(Size / 2, Size / 2));
+    }
+
+    /// <summary>
+    /// Checks that BVH rendering matches brute-force rendering for every pixel.
+    /// </summary>
+    [Fact]
+    public void BvhMatchesBruteForcePixels()
+    {
+        Scene scene = CreateScene(
+            CreateTriangle(-10f, Vector3.UnitZ),
+            CreateTriangle(-7f, Vector3.UnitX),
+            CreateTriangle(-4f, -Vector3.UnitZ),
+            CreateTriangle(-12f, Vector3.UnitY),
+            CreateTriangle(-2f, -Vector3.UnitX)
+        );
+
+        FrameBuffer bvhBuffer = Render(scene);
+        FrameBuffer bruteForceBuffer = RenderBruteForce(scene);
+
+        for (int y = 0; y < Size; y++)
+        {
+            for (int x = 0; x < Size; x++)
+            {
+                AssertColor(
+                    bruteForceBuffer.GetPixel(x, y),
+                    bvhBuffer.GetPixel(x, y)
+                );
+            }
+        }
     }
 
     [Fact]
@@ -118,6 +148,57 @@ public sealed class RayTracerTests
     {
         var target = new FrameBuffer(Size, Size);
         new RayTracer().Render(scene, _settings, target, TestContext.Current.CancellationToken);
+        return target;
+    }
+
+    /// <summary>
+    /// Renders a scene by testing every primitive for every pixel.
+    /// </summary>
+    /// <param name="scene">The scene to render.</param>
+    /// <returns>The brute-force frame buffer.</returns>
+    private static FrameBuffer RenderBruteForce(Scene scene)
+    {
+        var target = new FrameBuffer(Size, Size);
+
+        for (int y = 0; y < target.Height; y++)
+        {
+            for (int x = 0; x < target.Width; x++)
+            {
+                var ray = scene.Camera.CreatePrimaryRay(x, y);
+                var closestDistance = float.MaxValue;
+                HitInfo? closestHit = null;
+
+                foreach (IPrimitive primitive in scene.Model.Primitives)
+                {
+                    bool intersects = primitive.Intersect(
+                        ray,
+                        FloatComparison.Epsilon,
+                        closestDistance,
+                        out HitInfo hit
+                    );
+
+                    if (!intersects)
+                    {
+                        continue;
+                    }
+
+                    closestDistance = hit.Distance;
+                    closestHit = hit;
+                }
+
+                if (!closestHit.HasValue)
+                {
+                    target.SetPixel(x, y, _settings.BackgroundColor);
+                    continue;
+                }
+
+                var color = (closestHit.Value.ShadingNormal + Vector3.One) * 0.5f;
+                target.SetPixel(x, y, color);
+            }
+
+            target.MarkRowCompleted(y);
+        }
+
         return target;
     }
 
