@@ -1,5 +1,5 @@
-﻿// -----------------------------------------------------------------------------
-// Author:        Luca Lengl
+// -----------------------------------------------------------------------------
+// Author:        Luca Lengl, Jondahl Rhenius
 // AI Assistance: Claude for Information, Bug and Warning
 // -----------------------------------------------------------------------------
 
@@ -103,15 +103,42 @@ public readonly record struct Aabb
         float maxDistance
     )
     {
-        // Distances to the two planes of each slab; a zero direction component yields
-        // infinities, which the min/max below handle correctly.
-        Vector3 t0 = (Min - ray.Origin) * inverseDirection;
-        Vector3 t1 = (Max - ray.Origin) * inverseDirection;
-        Vector3 tNear = Vector3.Min(t0, t1);
-        Vector3 tFar = Vector3.Max(t0, t1);
+        float enter = minDistance;
+        float exit = maxDistance;
 
-        float enter = MathF.Max(minDistance, MathF.Max(tNear.X, MathF.Max(tNear.Y, tNear.Z)));
-        float exit = MathF.Min(maxDistance, MathF.Min(tFar.X, MathF.Min(tFar.Y, tFar.Z)));
+        return IntersectsSlab(ray.Origin.X, inverseDirection.X, Min.X, Max.X, ref enter, ref exit)
+            && IntersectsSlab(ray.Origin.Y, inverseDirection.Y, Min.Y, Max.Y, ref enter, ref exit)
+            && IntersectsSlab(ray.Origin.Z, inverseDirection.Z, Min.Z, Max.Z, ref enter, ref exit);
+    }
+
+    /// <summary>
+    /// Clips a ray interval against one axis-aligned slab.
+    /// </summary>
+    /// <param name="origin">The ray origin component on this axis.</param>
+    /// <param name="inverseDirection">The inverse ray direction component on this axis.</param>
+    /// <param name="min">The lower slab boundary.</param>
+    /// <param name="max">The upper slab boundary.</param>
+    /// <param name="enter">The current nearest entry distance; updated on success.</param>
+    /// <param name="exit">The current farthest exit distance; updated on success.</param>
+    /// <returns><c>true</c> if the ray interval still overlaps the slab.</returns>
+    private static bool IntersectsSlab(
+        float origin,
+        float inverseDirection,
+        float min,
+        float max,
+        ref float enter,
+        ref float exit
+    )
+    {
+        if (float.IsInfinity(inverseDirection))
+        {
+            return origin >= min && origin <= max;
+        }
+
+        float first = (min - origin) * inverseDirection;
+        float second = (max - origin) * inverseDirection;
+        enter = MathF.Max(enter, MathF.Min(first, second));
+        exit = MathF.Min(exit, MathF.Max(first, second));
 
         return enter <= exit;
     }
