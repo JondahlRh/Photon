@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // Author:        Luca Lengl
 // AI Assistance: Claude for Information, Warning and Bugs.
 // -----------------------------------------------------------------------------
@@ -54,6 +54,14 @@ public sealed class AabbTests
     {
         // Direction components of zero give infinite inverse values.
         var ray = new Ray(new Vector3(0.5f, 0.5f, 5f), -Vector3.UnitZ);
+
+        Assert.True(_unitBox.Intersects(ray, Inverse(ray), 0f, float.MaxValue));
+    }
+
+    [Fact]
+    public void AxisParallelRayOnSlabBoundaryIntersects()
+    {
+        var ray = new Ray(new Vector3(-1f, 0f, 5f), -Vector3.UnitZ);
 
         Assert.True(_unitBox.Intersects(ray, Inverse(ray), 0f, float.MaxValue));
     }

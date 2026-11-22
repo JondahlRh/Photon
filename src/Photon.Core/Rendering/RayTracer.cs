@@ -35,6 +35,8 @@ public sealed class RayTracer : IRenderer
             );
         }
 
+        var accelerationStructure = new Bvh(scene);
+
         for (int y = 0; y < target.Height; y++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -43,32 +45,20 @@ public sealed class RayTracer : IRenderer
             {
                 var ray = scene.Camera.CreatePrimaryRay(x, y);
 
-                var closestDistance = float.MaxValue;
-                HitInfo? closestHitInfo = null;
-
-                foreach (var primitive in scene.Model.Primitives)
-                {
-                    var hit = primitive.Intersect(
-                        ray,
-                        FloatComparison.Epsilon,
-                        closestDistance,
-                        out HitInfo info
-                    );
-                    if (!hit)
-                        continue;
-
-                    closestDistance = info.Distance;
-                    closestHitInfo = info;
-                }
-
-                if (!closestHitInfo.HasValue)
+                var foundHit = accelerationStructure.Intersect(
+                    ray,
+                    FloatComparison.Epsilon,
+                    float.MaxValue,
+                    out HitInfo closestHitInfo
+                );
+                if (!foundHit)
                 {
                     target.SetPixel(x, y, settings.BackgroundColor);
                     continue;
                 }
 
                 // Remap the normalized normal from [-1, 1] to RGB values in [0, 1].
-                var color = (closestHitInfo.Value.ShadingNormal + Vector3.One) * 0.5f;
+                var color = (closestHitInfo.ShadingNormal + Vector3.One) * 0.5f;
                 target.SetPixel(x, y, color);
             }
 

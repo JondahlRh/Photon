@@ -52,7 +52,7 @@ public sealed class ShadowRaysTests
         var structure = CreateStructure(CreateFloor(0f), CreateFloor(2f));
         var ray = new Ray(new Vector3(0f, 5f, 0f), -Vector3.UnitY);
 
-        bool found = structure.FindClosestHit(
+        bool found = structure.Intersect(
             ray,
             FloatComparison.Epsilon,
             float.MaxValue,
@@ -72,13 +72,42 @@ public sealed class ShadowRaysTests
         Assert.False(structure.IsOccluded(ray, FloatComparison.Epsilon, float.MaxValue));
     }
 
-    private static bool IsLit(BruteForceAccelerationStructure structure, float lightHeight)
+    [Fact]
+    public void BvhBlockerBetweenPointAndLightCastsShadow()
+    {
+        var bvh = CreateBvh(
+            CreateFloor(0f),
+            CreateFloor(2f),
+            CreateFloor(-2f),
+            CreateFloor(-4f),
+            CreateFloor(-6f),
+            CreateFloor(-8f)
+        );
+
+        Assert.False(IsLit(bvh, lightHeight: 5f));
+    }
+
+    [Fact]
+    public void BvhSurfaceDoesNotShadowItself()
+    {
+        var bvh = CreateBvh(
+            CreateFloor(0f),
+            CreateFloor(-2f),
+            CreateFloor(-4f),
+            CreateFloor(-6f),
+            CreateFloor(-8f)
+        );
+
+        Assert.True(IsLit(bvh, lightHeight: 5f));
+    }
+
+    private static bool IsLit(IAccelerationStructure structure, float lightHeight)
     {
         // Hit the floor from the side of the light, like a primary ray from the camera would.
         float direction = MathF.Sign(lightHeight);
         var primaryRay = new Ray(new Vector3(0f, direction, 0f), new Vector3(0f, -direction, 0f));
         Assert.True(
-            structure.FindClosestHit(
+            structure.Intersect(
                 primaryRay,
                 FloatComparison.Epsilon,
                 float.MaxValue,
@@ -94,6 +123,13 @@ public sealed class ShadowRaysTests
     private static BruteForceAccelerationStructure CreateStructure(params Mesh[] meshes)
     {
         return new BruteForceAccelerationStructure(new Model(meshes).Primitives);
+    }
+
+    private static Bvh CreateBvh(params Mesh[] meshes)
+    {
+        // More than four primitives, so the hierarchy has inner nodes and not only one leaf.
+        var camera = new Camera(Matrix4x4.Identity, 10, 10, new Vector3(0f, 0f, 10f));
+        return new Bvh(new Scene(new Model(meshes), new Lighting(Vector3.Zero, []), camera));
     }
 
     private static Mesh CreateFloor(float height)

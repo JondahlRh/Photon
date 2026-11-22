@@ -2,6 +2,7 @@
 // Author:        Luca Lengl
 // AI Assistance: Claude for information, bugs and warnings
 // -----------------------------------------------------------------------------
+
 using Photon.Core.Mathematics;
 using Photon.Core.Scenes;
 
@@ -35,7 +36,7 @@ public sealed class BruteForceAccelerationStructure : IAccelerationStructure
     }
 
     /// <inheritdoc/>
-    public bool FindClosestHit(in Ray ray, float minDistance, float maxDistance, out HitInfo hit)
+    public bool Intersect(in Ray ray, float minDistance, float maxDistance, out HitInfo hit)
     {
         hit = default;
         bool found = false;
