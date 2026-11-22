@@ -24,7 +24,12 @@ public sealed class BvhTests
         var bvh = new Bvh(CreateScene());
         var ray = new Ray(new Vector3(0f, 0f, 10f), -Vector3.UnitZ);
 
-        bool foundHit = bvh.Intersect(ray, FloatComparison.Epsilon, float.MaxValue, out HitInfo hit);
+        bool foundHit = bvh.Intersect(
+            ray,
+            FloatComparison.Epsilon,
+            float.MaxValue,
+            out HitInfo hit
+        );
 
         Assert.False(foundHit);
         Assert.Equal(0f, hit.Distance);
@@ -39,7 +44,12 @@ public sealed class BvhTests
         var bvh = new Bvh(CreateScene(CreateTriangle(-5f, Vector3.UnitZ)));
         var ray = new Ray(new Vector3(5f, 5f, 10f), -Vector3.UnitZ);
 
-        bool foundHit = bvh.Intersect(ray, FloatComparison.Epsilon, float.MaxValue, out HitInfo hit);
+        bool foundHit = bvh.Intersect(
+            ray,
+            FloatComparison.Epsilon,
+            float.MaxValue,
+            out HitInfo hit
+        );
 
         Assert.False(foundHit);
         Assert.Equal(0f, hit.Distance);
@@ -62,7 +72,12 @@ public sealed class BvhTests
         );
         var ray = new Ray(new Vector3(0f, 0f, 10f), -Vector3.UnitZ);
 
-        bool foundHit = bvh.Intersect(ray, FloatComparison.Epsilon, float.MaxValue, out HitInfo hit);
+        bool foundHit = bvh.Intersect(
+            ray,
+            FloatComparison.Epsilon,
+            float.MaxValue,
+            out HitInfo hit
+        );
 
         Assert.True(foundHit);
         Assert.True(FloatComparison.NearlyEqual(12f, hit.Distance));

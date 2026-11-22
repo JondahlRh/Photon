@@ -82,10 +82,7 @@ public sealed class RayTracerTests
         {
             for (int x = 0; x < Size; x++)
             {
-                AssertColor(
-                    bruteForceBuffer.GetPixel(x, y),
-                    bvhBuffer.GetPixel(x, y)
-                );
+                AssertColor(bruteForceBuffer.GetPixel(x, y), bvhBuffer.GetPixel(x, y));
             }
         }
     }
