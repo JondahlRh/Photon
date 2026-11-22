@@ -4,12 +4,15 @@
 // -----------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Microsoft.Extensions.Logging;
+using Photon.App.Imaging;
 using Photon.Application.ViewModels;
 using Photon.Core.Scenes;
 
@@ -25,6 +28,9 @@ public partial class MainWindow : Window
     /// </summary>
     private readonly ModelPreviewControl _preview;
 
+    /// <summary>The control displaying the completed render.</summary>
+    private readonly Image _resultImage;
+
     /// <summary>
     /// Initializes a new instance of the MainWindow class.
     /// </summary>
@@ -32,11 +38,59 @@ public partial class MainWindow : Window
     {
         AvaloniaXamlLoader.Load(this);
 
-        DataContext = new MainWindowViewModel(Program.Loggers.CreateLogger<MainWindowViewModel>());
+        var viewModel = new MainWindowViewModel(
+            Program.Loggers.CreateLogger<MainWindowViewModel>()
+        );
+
+        DataContext = viewModel;
 
         _preview =
             this.FindControl<ModelPreviewControl>("Preview")
             ?? throw new InvalidOperationException("The model preview control was not found.");
+
+        _resultImage =
+            this.FindControl<Image>("RenderResultImage")
+            ?? throw new InvalidOperationException("The render result image was not found.");
+
+        viewModel.PropertyChanged += ViewModelPropertyChanged;
+    }
+
+    /// <summary>
+    /// Displays the image when a new render result is available.
+    /// </summary>
+    /// <param name="sender">The ViewModel reporting the change.</param>
+    /// <param name="e">The changed property.</param>
+    private void ViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (
+            e.PropertyName != nameof(MainWindowViewModel.RenderResult)
+            || sender is not MainWindowViewModel viewModel
+        )
+        {
+            return;
+        }
+        var buffer = viewModel.RenderResult;
+        var bitmap = buffer is null ? null : FrameBufferBitmap.Create(buffer);
+        var previous = _resultImage.Source as WriteableBitmap;
+
+        _resultImage.Source = bitmap;
+
+        previous?.Dispose();
+    }
+
+    /// <inheritdoc/>
+    protected override void OnClosed(EventArgs e)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.PropertyChanged -= ViewModelPropertyChanged;
+        }
+
+        var bitmap = _resultImage.Source as WriteableBitmap;
+        _resultImage.Source = null;
+        bitmap?.Dispose();
+
+        base.OnClosed(e);
     }
 
     /// <summary>
