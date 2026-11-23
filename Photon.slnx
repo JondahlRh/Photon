@@ -1,11 +1,12 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="src/Photon.App/Photon.App.csproj" />
-    <Project Path="src/Photon.Application/Photon.Application.csproj" />
-    <Project Path="src/Photon.Core/Photon.Core.csproj" />
+    <Project Path="Software/Quellen/src/Photon.App/Photon.App.csproj" />
+    <Project Path="Software/Quellen/src/Photon.Application/Photon.Application.csproj" />
+    <Project Path="Software/Quellen/src/Photon.Core/Photon.Core.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/Photon.Application.Tests/Photon.Application.Tests.csproj" />
-    <Project Path="tests/Photon.Core.Tests/Photon.Core.Tests.csproj" />
+    <Project Path="Software/Quellen/tests/Photon.App.Tests/Photon.App.Tests.csproj" />
+    <Project Path="Software/Quellen/tests/Photon.Application.Tests/Photon.Application.Tests.csproj" />
+    <Project Path="Software/Quellen/tests/Photon.Core.Tests/Photon.Core.Tests.csproj" />
   </Folder>
 </Solution>
