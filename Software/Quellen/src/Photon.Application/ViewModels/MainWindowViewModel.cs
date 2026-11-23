@@ -327,5 +327,4 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     [LoggerMessage(Level = LogLevel.Error, Message = "{exception}")]
     private partial void LogLoadingModelException(string exception);
-
 }

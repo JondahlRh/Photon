@@ -12,8 +12,8 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Microsoft.Extensions.Logging;
-using Photon.App.Platform.Skia;
 using Photon.App.Imaging;
+using Photon.App.Platform.Skia;
 using Photon.Application.ViewModels;
 using Photon.Core.Scenes;
 
