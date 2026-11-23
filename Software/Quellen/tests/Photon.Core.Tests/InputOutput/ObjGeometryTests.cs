@@ -102,6 +102,49 @@ public sealed class ObjGeometryTests : IDisposable
     }
 
     /// <summary>
+    /// Checks that a zero-length normal produces a warning with its line, keeps the indices of
+    /// later normals, and is replaced by the calculated normal.
+    /// </summary>
+    [Fact]
+    public void LoadReplacesZeroLengthNormalWithCalculatedNormal()
+    {
+        string path = WriteFile(
+            "zero-normal.obj",
+            """
+            v 0 0 0
+            v 1 0 0
+            v 0 1 0
+            v 0 0 1
+            vn -0.0000 -0.0000 -0.0000
+            vn 0 1 0
+            f 1//1 2//1 3//1
+            f 1//2 4//2 2//2
+            """
+        );
+
+        ImportResult result = ObjMtlImporter.Load(path);
+
+        string warning = Assert.Single(result.Warnings);
+        Assert.Contains($"{path}:5:", warning, StringComparison.Ordinal);
+        Assert.Contains("zero length", warning, StringComparison.Ordinal);
+
+        Mesh mesh = Assert.Single(result.Model.Meshes);
+        MeshTriangle first = mesh.Triangles[0];
+        MeshTriangle second = mesh.Triangles[1];
+
+        // Positions 1 and 2 are shared with the second face (normal +Y), position 3 is not.
+        Vector3 shared = Vector3.Normalize(new Vector3(0f, 1f, 1f));
+        AssertNearlyEqual(shared, mesh.Normals[first.Index0]);
+        AssertNearlyEqual(shared, mesh.Normals[first.Index1]);
+        AssertNearlyEqual(Vector3.UnitZ, mesh.Normals[first.Index2]);
+
+        // The second face still uses the normal from the file.
+        AssertNearlyEqual(Vector3.UnitY, mesh.Normals[second.Index0]);
+        AssertNearlyEqual(Vector3.UnitY, mesh.Normals[second.Index1]);
+        AssertNearlyEqual(Vector3.UnitY, mesh.Normals[second.Index2]);
+    }
+
+    /// <summary>
     /// Checks that an unknown keyword is reported once and the import continues.
     /// </summary>
     [Fact]
@@ -527,5 +570,18 @@ public sealed class ObjGeometryTests : IDisposable
         string path = Path.Combine(_directory, relativePath);
         File.WriteAllText(path, contents);
         return path;
+    }
+
+    /// <summary>
+    /// Asserts that two vectors are equal within a small tolerance.
+    /// </summary>
+    /// <param name="expected">The expected vector.</param>
+    /// <param name="actual">The actual vector.</param>
+    private static void AssertNearlyEqual(Vector3 expected, Vector3 actual)
+    {
+        Assert.True(
+            Vector3.Distance(expected, actual) < 1e-5f,
+            $"Expected {expected}, but got {actual}."
+        );
     }
 }

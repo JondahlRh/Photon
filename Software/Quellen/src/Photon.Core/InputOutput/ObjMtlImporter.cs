@@ -11,8 +11,9 @@ using Photon.Core.Scenes;
 namespace Photon.Core.InputOutput;
 
 /// <summary>
-/// Imports triangular OBJ geometry and diffuse RGB colors from MTL files.
-/// Grouping, smoothing, texture coordinates, and imported normals are ignored.
+/// Imports triangular OBJ geometry, vertex normals, and diffuse RGB colors from MTL files.
+/// Grouping, smoothing, and texture coordinates are ignored. Zero-length normals produce a
+/// warning, and the corners that use them get a calculated normal.
 /// </summary>
 public readonly struct ObjMtlImporter
 {
@@ -38,7 +39,8 @@ public readonly struct ObjMtlImporter
         List<FaceCorner[]> faces = new List<FaceCorner[]>();
         List<int> materialIndices = new List<int>();
         List<int> faceLines = new List<int>();
-        List<Vector3> normals = new List<Vector3>();
+        // Null marks a zero-length normal; it keeps its index so later 'f a//n' indices stay valid.
+        List<Vector3?> normals = new List<Vector3?>();
         var definedMaterials = new HashSet<string>(StringComparer.Ordinal);
         var warnings = new List<string>();
         var warnedKeywords = new HashSet<string>(StringComparer.Ordinal);
@@ -176,7 +178,12 @@ public readonly struct ObjMtlImporter
 
                     if (VectorMath.IsNearlyZero(normal))
                     {
-                        throw new FormatException($"{location}: Normal has zero length.");
+                        warnings.Add(
+                            $"{location}: Normal has zero length; corners that use it get a "
+                                + "calculated normal."
+                        );
+                        normals.Add(null);
+                        break;
                     }
 
                     normals.Add(normal);
@@ -239,7 +246,7 @@ public readonly struct ObjMtlImporter
                 case "g":
                 case "s":
                 case "vt":
-                    // The preview uses one mesh and calculated face normals.
+                    // Objects, groups, smoothing groups and texture coordinates are not used.
                     break;
 
                 default:
@@ -276,9 +283,16 @@ public readonly struct ObjMtlImporter
             builder.AddPosition(pos);
         }
 
-        foreach (Vector3 normal in normals)
+        foreach (Vector3? normal in normals)
         {
-            builder.AddNormal(normal);
+            if (normal is Vector3 value)
+            {
+                builder.AddNormal(value);
+            }
+            else
+            {
+                builder.AddPlaceholderNormal();
+            }
         }
 
         for (int i = 1; i < materials.Count; i++)

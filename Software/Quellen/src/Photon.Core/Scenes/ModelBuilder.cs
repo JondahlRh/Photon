@@ -20,9 +20,9 @@ namespace Photon.Core.Scenes;
 /// every group with at least one face becomes one <see cref="Mesh"/>.
 /// </para>
 /// <para>
-/// Corners without a normal get a calculated vertex normal: the area-weighted average of the
-/// normals of all faces that share the position, across all groups, so no seam appears where
-/// the material changes.
+/// Corners without a normal, or with a normal added by <see cref="AddPlaceholderNormal"/>, get a
+/// calculated vertex normal: the area-weighted average of the normals of all faces that share
+/// the position, across all groups, so no seam appears where the material changes.
 /// </para>
 /// <para>This class is not thread-safe.</para>
 /// </remarks>
@@ -34,9 +34,9 @@ public sealed class ModelBuilder
     private readonly List<Vector3> _positions = [];
 
     /// <summary>
-    /// The normals added so far.
+    /// The normals added so far; <c>null</c> for a placeholder whose corners use the calculated normal.
     /// </summary>
-    private readonly List<Vector3> _normals = [];
+    private readonly List<Vector3?> _normals = [];
 
     /// <summary>
     /// The registered materials by name.
@@ -68,7 +68,7 @@ public sealed class ModelBuilder
     public int PositionCount => _positions.Count;
 
     /// <summary>
-    /// Gets the number of normals added so far.
+    /// Gets the number of normals added so far, including placeholders.
     /// </summary>
     public int NormalCount => _normals.Count;
 
@@ -99,7 +99,10 @@ public sealed class ModelBuilder
     /// </summary>
     /// <param name="normal">The normal vector.</param>
     /// <returns>The zero-based index of the new normal.</returns>
-    /// <exception cref="ArgumentException">Thrown if a component is not finite or the vector has zero length.</exception>
+    /// <exception cref="ArgumentException">
+    /// Thrown if a component is not finite or the vector has zero length. Use
+    /// <see cref="AddPlaceholderNormal"/> to keep the index of such a normal.
+    /// </exception>
     public int AddNormal(Vector3 normal)
     {
         if (!VectorMath.IsFinite(normal) || VectorMath.IsNearlyZero(normal))
@@ -111,6 +114,18 @@ public sealed class ModelBuilder
         }
 
         _normals.Add(normal);
+        return _normals.Count - 1;
+    }
+
+    /// <summary>
+    /// Adds a placeholder for a normal that cannot be used, for example a zero vector read from a
+    /// file. It keeps the normal indices of later normals unchanged; corners that refer to it get
+    /// the calculated vertex normal, as if they had no normal.
+    /// </summary>
+    /// <returns>The zero-based index of the placeholder.</returns>
+    public int AddPlaceholderNormal()
+    {
+        _normals.Add(null);
         return _normals.Count - 1;
     }
 
@@ -574,11 +589,10 @@ public sealed class ModelBuilder
                 vertexIndex = vertices.Count;
                 vertexLookup.Add(corner, vertexIndex);
                 vertices.Add(_positions[corner.PositionIndex]);
-                normals.Add(
-                    corner.NormalIndex is int normalIndex
-                        ? _normals[normalIndex]
-                        : calculatedNormals[corner.PositionIndex]
-                );
+                Vector3? normal = corner.NormalIndex is int normalIndex
+                    ? _normals[normalIndex]
+                    : null;
+                normals.Add(normal ?? calculatedNormals[corner.PositionIndex]);
             }
 
             indices[i] = vertexIndex;

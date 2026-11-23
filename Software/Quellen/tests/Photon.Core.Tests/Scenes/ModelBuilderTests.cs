@@ -130,6 +130,43 @@ public sealed class ModelBuilderTests
     }
 
     [Fact]
+    public void ZeroLengthNormalThrows()
+    {
+        var builder = new ModelBuilder();
+
+        Assert.Throws<ArgumentException>(() => builder.AddNormal(Vector3.Zero));
+        Assert.Equal(0, builder.NormalCount);
+    }
+
+    [Fact]
+    public void PlaceholderNormalKeepsLaterIndices()
+    {
+        var builder = new ModelBuilder();
+
+        int placeholder = builder.AddPlaceholderNormal();
+        int normal = builder.AddNormal(Vector3.UnitZ);
+
+        Assert.Equal(0, placeholder);
+        Assert.Equal(1, normal);
+        Assert.Equal(2, builder.NormalCount);
+    }
+
+    [Fact]
+    public void PlaceholderNormalIsReplacedByCalculatedNormal()
+    {
+        ModelBuilder builder = CreateBuilderWithSquare();
+        int placeholder = builder.AddPlaceholderNormal();
+
+        builder.AddFace([new(0, placeholder), new(1, placeholder), new(2, placeholder)]);
+        Model model = builder.Build();
+
+        foreach (Vector3 normal in model.Meshes[0].Normals)
+        {
+            Assert.True(Vector3.Distance(Vector3.UnitZ, normal) < 1e-5f);
+        }
+    }
+
+    [Fact]
     public void InvalidIndexThrows()
     {
         ModelBuilder builder = CreateBuilderWithSquare();
