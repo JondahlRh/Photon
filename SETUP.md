@@ -21,10 +21,10 @@ Die Workflows gehen von dieser Struktur aus (Solution-Datei im Root):
 
 ```
 Photon.slnx
-src/Photon.Core/Photon.Core.csproj                (Rendering, keine UI-Abhängigkeiten)
-src/Photon.Application/Photon.Application.csproj  (ViewModels + Services, keine UI-Abhängigkeiten)
-src/Photon.App/Photon.App.csproj                  (Avalonia + OpenTK)
-tests/Photon.Core.Tests/...Tests.csproj           (Testprojekte enden auf .Tests)
+Software/Quellen/src/Photon.Core/Photon.Core.csproj                (Rendering, keine UI-Abhängigkeiten)
+Software/Quellen/src/Photon.Application/Photon.Application.csproj  (ViewModels + Services, keine UI-Abhängigkeiten)
+Software/Quellen/src/Photon.App/Photon.App.csproj                  (Avalonia + OpenTK)
+Software/Quellen/tests/Photon.Core.Tests/...Tests.csproj           (Testprojekte enden auf .Tests)
 ```
 
 Weicht der Pfad zur App ab, `APP_PROJECT` in `release.yml` anpassen.

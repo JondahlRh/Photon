@@ -38,8 +38,8 @@ check_project() {
   fi
 }
 
-check_project src/Photon.Core "${ui}|${app}|${application}"
-check_project src/Photon.Application "${ui}|${app}"
+check_project Software/Quellen/src/Photon.Core "${ui}|${app}|${application}"
+check_project Software/Quellen/src/Photon.Application "${ui}|${app}"
 
 [[ $failed -eq 0 ]] || exit 1
 echo "Architecture check passed: Photon.Core and Photon.Application are UI-independent."
