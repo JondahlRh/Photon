@@ -141,10 +141,46 @@ public sealed class RayTracerTests
         Assert.True(File.Exists(path));
     }
 
+    [Fact]
+    public void DefaultRayTracerShadesWithPhongLighting()
+    {
+        var material = new Material(
+            "Diffuse",
+            Vector3.Zero,
+            new Vector3(0.2f, 0.4f, 0.6f),
+            Vector3.Zero
+        );
+        var mesh = new Mesh(
+            [new Vector3(-3f, -3f, -10f), new Vector3(3f, -3f, -10f), new Vector3(0f, 3f, -10f)],
+            [Vector3.UnitZ, Vector3.UnitZ, Vector3.UnitZ],
+            [0, 1, 2],
+            material
+        );
+        var camera = new Camera(Matrix4x4.Identity, Size, Size, new Vector3(0f, 0f, 10f));
+        var scene = new Scene(new Model([mesh]), new Lighting(new Vector3(0.5f), []), camera);
+        var target = new FrameBuffer(Size, Size);
+
+        new RayTracer().Render(scene, _settings, target, TestContext.Current.CancellationToken);
+
+        // Without light sources only the ambient term Kd * Ia remains.
+        AssertColor(new Vector3(0.1f, 0.2f, 0.3f), target.GetPixel(Size / 2, Size / 2));
+    }
+
+    [Fact]
+    public void NullLightingModelThrows()
+    {
+        Assert.Throws<ArgumentNullException>(() => new RayTracer(null!));
+    }
+
     private static FrameBuffer Render(Scene scene)
     {
         var target = new FrameBuffer(Size, Size);
-        new RayTracer().Render(scene, _settings, target, TestContext.Current.CancellationToken);
+        new RayTracer(new NormalColorLighting()).Render(
+            scene,
+            _settings,
+            target,
+            TestContext.Current.CancellationToken
+        );
         return target;
     }
 
@@ -235,5 +271,22 @@ public sealed class RayTracerTests
 
         return directory?.FullName
             ?? throw new DirectoryNotFoundException("Photon.slnx was not found.");
+    }
+
+    /// <summary>
+    /// Shows the shading normal as color, so tests can check which surface a pixel shows.
+    /// </summary>
+    private sealed class NormalColorLighting : ILightingModel
+    {
+        public Vector3 Shade(
+            in Ray ray,
+            in HitInfo hit,
+            Lighting lighting,
+            IAccelerationStructure occluders
+        )
+        {
+            // Remap the normalized normal from [-1, 1] to RGB values in [0, 1].
+            return (hit.ShadingNormal + Vector3.One) * 0.5f;
+        }
     }
 }
