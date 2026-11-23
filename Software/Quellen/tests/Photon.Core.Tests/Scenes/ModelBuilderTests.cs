@@ -43,6 +43,46 @@ public sealed class ModelBuilderTests
     }
 
     [Fact]
+    public void UseDefaultMaterialIgnoresMaterialNamedDefault()
+    {
+        ModelBuilder builder = CreateBuilderWithSquare();
+        var blue = new Material("Default", Vector3.Zero, new Vector3(0f, 0f, 1f), Vector3.Zero);
+        builder.AddMaterial(blue);
+
+        builder.UseMaterial("Default");
+        builder.AddTriangle(0, 1, 2);
+        builder.UseDefaultMaterial();
+        builder.AddTriangle(0, 2, 3);
+        Model model = builder.Build();
+
+        Assert.Equal(2, model.Meshes.Count);
+        Assert.Same(blue, model.Meshes[0].Material);
+        Assert.Same(Material.Default, model.Meshes[1].Material);
+    }
+
+    [Fact]
+    public void TryAddFaceSkipsDegenerateFace()
+    {
+        ModelBuilder builder = CreateBuilderWithSquare();
+
+        bool degenerateAdded = builder.TryAddFace([new(0), new(1), new(1)]);
+        bool validAdded = builder.TryAddFace([new(0), new(1), new(2)]);
+        Model model = builder.Build();
+
+        Assert.False(degenerateAdded);
+        Assert.True(validAdded);
+        Assert.Equal(1, model.TriangleCount);
+    }
+
+    [Fact]
+    public void AddFaceThrowsForDegenerateFace()
+    {
+        ModelBuilder builder = CreateBuilderWithSquare();
+
+        Assert.Throws<FormatException>(() => builder.AddFace([new(0), new(1), new(1)]));
+    }
+
+    [Fact]
     public void GroupsWithoutFacesAreSkipped()
     {
         ModelBuilder builder = CreateBuilderWithSquare();
@@ -127,6 +167,43 @@ public sealed class ModelBuilderTests
         Model model = builder.Build();
 
         Assert.Equal(Vector3.UnitZ, model.Meshes[0].Normals[0]);
+    }
+
+    [Fact]
+    public void ZeroLengthNormalThrows()
+    {
+        var builder = new ModelBuilder();
+
+        Assert.Throws<ArgumentException>(() => builder.AddNormal(Vector3.Zero));
+        Assert.Equal(0, builder.NormalCount);
+    }
+
+    [Fact]
+    public void PlaceholderNormalKeepsLaterIndices()
+    {
+        var builder = new ModelBuilder();
+
+        int placeholder = builder.AddPlaceholderNormal();
+        int normal = builder.AddNormal(Vector3.UnitZ);
+
+        Assert.Equal(0, placeholder);
+        Assert.Equal(1, normal);
+        Assert.Equal(2, builder.NormalCount);
+    }
+
+    [Fact]
+    public void PlaceholderNormalIsReplacedByCalculatedNormal()
+    {
+        ModelBuilder builder = CreateBuilderWithSquare();
+        int placeholder = builder.AddPlaceholderNormal();
+
+        builder.AddFace([new(0, placeholder), new(1, placeholder), new(2, placeholder)]);
+        Model model = builder.Build();
+
+        foreach (Vector3 normal in model.Meshes[0].Normals)
+        {
+            Assert.True(Vector3.Distance(Vector3.UnitZ, normal) < 1e-5f);
+        }
     }
 
     [Fact]
