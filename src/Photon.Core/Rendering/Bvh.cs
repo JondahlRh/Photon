@@ -1,6 +1,6 @@
 // -----------------------------------------------------------------------------
-// Author:        Jondahl Rhenius
-// AI Assistance: Copilot for information & documentation
+// Author:        Jondahl Rhenius, Luca Lengl
+// AI Assistance: Copilot for information & documentation, Claude for information, bugs and warnings
 // -----------------------------------------------------------------------------
 
 using System.Numerics;
@@ -274,5 +274,65 @@ public sealed class Bvh : IAccelerationStructure
         }
 
         return foundHit;
+    }
+
+    /// <inheritdoc/>
+    public bool IsOccluded(in Ray ray, float minDistance, float maxDistance)
+    {
+        if (
+            _rootNodeIndex == -1
+            || !float.IsFinite(minDistance)
+            || !float.IsFinite(maxDistance)
+            || minDistance < 0f
+            || maxDistance < 0f
+            || minDistance > maxDistance
+        )
+        {
+            return false;
+        }
+
+        var inverseDirection = Vector3.One / ray.Direction;
+
+        var nodesToVisit = new Stack<int>();
+        nodesToVisit.Push(_rootNodeIndex);
+
+        while (nodesToVisit.Count > 0)
+        {
+            var node = _nodes[nodesToVisit.Pop()];
+
+            if (!node.Bounds.Intersects(ray, inverseDirection, minDistance, maxDistance))
+            {
+                continue;
+            }
+
+            if (node.PrimitiveCount == 0)
+            {
+                if (node.LeftChildIndex != -1)
+                {
+                    nodesToVisit.Push(node.LeftChildIndex);
+                }
+
+                if (node.RightChildIndex != -1)
+                {
+                    nodesToVisit.Push(node.RightChildIndex);
+                }
+
+                continue;
+            }
+
+            var start = node.FirstPrimitiveIndex;
+            var end = node.FirstPrimitiveIndex + node.PrimitiveCount;
+
+            for (int i = start; i < end; i++)
+            {
+                // Any hit blocks the ray, so the search can stop at the first one.
+                if (_primitives[i].Intersect(ray, minDistance, maxDistance, out _))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }
