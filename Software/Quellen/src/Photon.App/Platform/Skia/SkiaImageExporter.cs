@@ -25,7 +25,9 @@ public class SkiaImageExporter : IImageExporter
         return Task.Run(() => Export(buffer, path));
     }
 
-    /// Writes the frame buffer as PNG file/>
+    /// <summary>Writes the frame buffer as PNG file.</summary>
+    /// <param name="buffer">The frame buffer to export.</param>
+    /// <param name="path">The target file path.</param>
     private static void Export(FrameBuffer buffer, string path)
     {
         using SKBitmap bitmap = new SKBitmap(
@@ -56,8 +58,10 @@ public class SkiaImageExporter : IImageExporter
     }
 
     /// <summary>
-    /// Converts a linear color value to a gamma corrected byte
+    /// Converts a linear color value to a gamma corrected byte.
     /// </summary>
+    /// <param name="linear">The linear color value.</param>
+    /// <returns>The gamma corrected value between 0 and 255.</returns>
     private static byte ToByte(float linear)
     {
         float clamped = Math.Clamp(linear, 0f, 1f);
