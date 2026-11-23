@@ -13,7 +13,8 @@ namespace Photon.Core.InputOutput;
 /// <summary>
 /// Imports triangular OBJ geometry, vertex normals, and diffuse RGB colors from MTL files.
 /// Grouping, smoothing, and texture coordinates are ignored. Zero-length normals produce a
-/// warning, and the corners that use them get a calculated normal.
+/// warning, and the corners that use them get a calculated normal. Faces without area are
+/// skipped with one warning, and a <c>usemtl</c> without a name selects the default material.
 /// </summary>
 public readonly struct ObjMtlImporter
 {
@@ -29,7 +30,7 @@ public readonly struct ObjMtlImporter
     /// Thrown when the file cannot be read.
     /// </exception>
     /// <exception cref="FormatException">
-    /// Thrown when an OBJ or MTL file contains invalid data, or no faces are found.
+    /// Thrown when an OBJ or MTL file contains invalid data, or no faces with an area are found.
     /// </exception>
     public static ImportResult Load(string path)
     {
@@ -227,7 +228,9 @@ public readonly struct ObjMtlImporter
                 {
                     if (parts.Length < 2)
                     {
-                        throw new FormatException($"{location}: Expected a material name.");
+                        // Blender writes a bare 'usemtl' for faces without a material.
+                        currentMaterialIndex = 0;
+                        break;
                     }
 
                     string name = line["usemtl".Length..].Trim();
@@ -301,25 +304,64 @@ public readonly struct ObjMtlImporter
         }
 
         int activeMaterialIndex = 0;
+        int skippedFaces = 0;
+        int firstSkippedLine = 0;
 
         for (int i = 0; i < faces.Count; i++)
         {
             int materialIndex = materialIndices[i];
             if (materialIndex != activeMaterialIndex)
             {
-                builder.UseMaterial(materials[materialIndex].Name);
+                if (materialIndex == 0)
+                {
+                    builder.UseDefaultMaterial();
+                }
+                else
+                {
+                    builder.UseMaterial(materials[materialIndex].Name);
+                }
+
                 activeMaterialIndex = materialIndex;
             }
 
+            bool added;
+
             try
             {
-                builder.AddFace(faces[i]);
+                added = builder.TryAddFace(faces[i]);
             }
             catch (FormatException exception)
             {
                 throw new FormatException($"{path}:{faceLines[i]}: {exception.Message}", exception);
             }
+
+            if (!added)
+            {
+                // Real models can contain many of these faces, so they share one warning.
+                if (skippedFaces == 0)
+                {
+                    firstSkippedLine = faceLines[i];
+                }
+
+                skippedFaces++;
+            }
         }
+
+        if (skippedFaces == faces.Count)
+        {
+            throw new FormatException(
+                $"{path}: All faces are degenerate: their corners lie on one line."
+            );
+        }
+
+        if (skippedFaces > 0)
+        {
+            warnings.Add(
+                $"{path}:{firstSkippedLine}: Skipped {skippedFaces} degenerate face(s) whose "
+                    + "corners lie on one line; this is the first one."
+            );
+        }
+
         return new ImportResult(builder.Build(), warnings);
     }
 

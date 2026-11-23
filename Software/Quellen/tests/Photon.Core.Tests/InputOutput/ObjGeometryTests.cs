@@ -488,7 +488,7 @@ public sealed class ObjGeometryTests : IDisposable
     }
 
     /// <summary>
-    /// Checks that a triangle whose corners lie on one line is rejected.
+    /// Checks that a file whose only triangle has its corners on one line is rejected.
     /// </summary>
     [Fact]
     public void LoadRejectsDegenerateTriangle()
@@ -506,6 +506,33 @@ public sealed class ObjGeometryTests : IDisposable
         FormatException exception = Assert.Throws<FormatException>(() => ObjMtlImporter.Load(path));
 
         Assert.Contains("degenerate", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Checks that faces without area are skipped with one warning that names the first one.
+    /// </summary>
+    [Fact]
+    public void LoadSkipsDegenerateFacesWithOneWarning()
+    {
+        string path = WriteFile(
+            "mixed.obj",
+            """
+            v 0 0 0
+            v 1 0 0
+            v 0 1 0
+            v 0 0 0
+            f 1 2 3
+            f 1 4 2
+            f 1 2 2
+            """
+        );
+
+        ImportResult result = ObjMtlImporter.Load(path);
+
+        Assert.Equal(1, result.Model.TriangleCount);
+        string warning = Assert.Single(result.Warnings);
+        Assert.Contains($"{path}:6:", warning, StringComparison.Ordinal);
+        Assert.Contains("Skipped 2 degenerate", warning, StringComparison.Ordinal);
     }
 
     /// <summary>

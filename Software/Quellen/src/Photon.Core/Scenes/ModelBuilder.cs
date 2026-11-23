@@ -16,7 +16,8 @@ namespace Photon.Core.Scenes;
 /// <remarks>
 /// <para>
 /// All indices are zero-based; converting the one-based and negative indices of OBJ files
-/// is the importer's job. Every call to <see cref="UseMaterial"/> starts a new group, and
+/// is the importer's job. Every call to <see cref="UseMaterial"/> or
+/// <see cref="UseDefaultMaterial"/> starts a new group, and
 /// every group with at least one face becomes one <see cref="Mesh"/>.
 /// </para>
 /// <para>
@@ -173,6 +174,16 @@ public sealed class ModelBuilder
     }
 
     /// <summary>
+    /// Starts a new group whose faces use <see cref="Material.Default"/>, even if a registered
+    /// material has the same name.
+    /// </summary>
+    public void UseDefaultMaterial()
+    {
+        _currentGroup = new FaceGroup(Material.Default);
+        _groups.Add(_currentGroup);
+    }
+
+    /// <summary>
     /// Adds a face with three or more corners. Faces with more corners are validated as simple
     /// polygons and split by ear clipping, so concave faces are triangulated correctly.
     /// </summary>
@@ -181,6 +192,26 @@ public sealed class ModelBuilder
     /// <exception cref="ArgumentOutOfRangeException">Thrown if an index refers to no position or normal.</exception>
     /// <exception cref="FormatException">Thrown if the polygon is degenerate or self-intersecting.</exception>
     public void AddFace(ReadOnlySpan<FaceCorner> corners)
+    {
+        if (!TryAddFace(corners))
+        {
+            throw new FormatException("The polygon is degenerate: its corners lie on one line.");
+        }
+    }
+
+    /// <summary>
+    /// Adds a face like <see cref="AddFace"/>, but skips a degenerate face instead of throwing.
+    /// Real models often contain such faces, for example triangles with two equal corners.
+    /// </summary>
+    /// <param name="corners">The corners in order around the face.</param>
+    /// <returns>
+    /// <c>true</c> if the face was added; <c>false</c> if it was skipped because its corners lie
+    /// on one line, so it has no area.
+    /// </returns>
+    /// <exception cref="ArgumentException">Thrown if fewer than three corners are given.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown if an index refers to no position or normal.</exception>
+    /// <exception cref="FormatException">Thrown if the polygon is self-intersecting.</exception>
+    public bool TryAddFace(ReadOnlySpan<FaceCorner> corners)
     {
         if (corners.Length < 3)
         {
@@ -208,15 +239,16 @@ public sealed class ModelBuilder
             }
         }
 
-        AddTriangulated(corners);
+        return TryAddTriangulated(corners);
     }
 
     /// <summary>
     /// Splits a simple polygon into triangles by ear clipping, so concave polygons are triangulated correctly.
     /// </summary>
     /// <param name="corners">The polygon corners in order.</param>
+    /// <returns><c>true</c> if the polygon was added; <c>false</c> if it is degenerate and was skipped.</returns>
     /// <exception cref="FormatException">Thrown when the polygon is self-intersecting and cannot be triangulated.</exception>
-    private void AddTriangulated(ReadOnlySpan<FaceCorner> corners)
+    private bool TryAddTriangulated(ReadOnlySpan<FaceCorner> corners)
     {
         var points = new Vector3[corners.Length];
 
@@ -231,7 +263,7 @@ public sealed class ModelBuilder
 
         if (normal.Length() <= tolerance)
         {
-            throw new FormatException("The polygon is degenerate: its corners lie on one line.");
+            return false;
         }
 
         normal = Vector3.Normalize(normal);
@@ -280,6 +312,7 @@ public sealed class ModelBuilder
         }
 
         EmitTriangle(corners[remaining[0]], corners[remaining[1]], corners[remaining[2]]);
+        return true;
     }
 
     /// <summary>

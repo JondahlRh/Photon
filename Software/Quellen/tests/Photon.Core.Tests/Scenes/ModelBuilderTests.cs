@@ -43,6 +43,46 @@ public sealed class ModelBuilderTests
     }
 
     [Fact]
+    public void UseDefaultMaterialIgnoresMaterialNamedDefault()
+    {
+        ModelBuilder builder = CreateBuilderWithSquare();
+        var blue = new Material("Default", Vector3.Zero, new Vector3(0f, 0f, 1f), Vector3.Zero);
+        builder.AddMaterial(blue);
+
+        builder.UseMaterial("Default");
+        builder.AddTriangle(0, 1, 2);
+        builder.UseDefaultMaterial();
+        builder.AddTriangle(0, 2, 3);
+        Model model = builder.Build();
+
+        Assert.Equal(2, model.Meshes.Count);
+        Assert.Same(blue, model.Meshes[0].Material);
+        Assert.Same(Material.Default, model.Meshes[1].Material);
+    }
+
+    [Fact]
+    public void TryAddFaceSkipsDegenerateFace()
+    {
+        ModelBuilder builder = CreateBuilderWithSquare();
+
+        bool degenerateAdded = builder.TryAddFace([new(0), new(1), new(1)]);
+        bool validAdded = builder.TryAddFace([new(0), new(1), new(2)]);
+        Model model = builder.Build();
+
+        Assert.False(degenerateAdded);
+        Assert.True(validAdded);
+        Assert.Equal(1, model.TriangleCount);
+    }
+
+    [Fact]
+    public void AddFaceThrowsForDegenerateFace()
+    {
+        ModelBuilder builder = CreateBuilderWithSquare();
+
+        Assert.Throws<FormatException>(() => builder.AddFace([new(0), new(1), new(1)]));
+    }
+
+    [Fact]
     public void GroupsWithoutFacesAreSkipped()
     {
         ModelBuilder builder = CreateBuilderWithSquare();

@@ -116,6 +116,36 @@ public sealed class ObjMtlImporterTests : IDisposable
     }
 
     /// <summary>
+    /// Checks that a <c>usemtl</c> without a name selects the default material, even if a
+    /// library defines a material called "Default".
+    /// </summary>
+    [Fact]
+    public void LoadUsesDefaultMaterialForUsemtlWithoutName()
+    {
+        WriteFile("palette.mtl", "newmtl Red\nKd 1 0 0\nnewmtl Default\nKd 0 0 1\n");
+        string path = WriteFile(
+            "model.obj",
+            """
+            mtllib palette.mtl
+            v 0 0 0
+            v 1 0 0
+            v 0 1 0
+            usemtl Red
+            f 1 2 3
+            usemtl
+            f 1 2 3
+            """
+        );
+
+        ImportResult result = ObjMtlImporter.Load(path);
+
+        Assert.Empty(result.Warnings);
+        Assert.Equal(2, result.Model.Meshes.Count);
+        Assert.Equal("Red", result.Model.Meshes[0].Material.Name);
+        Assert.Same(Material.Default, result.Model.Meshes[1].Material);
+    }
+
+    /// <summary>
     /// Checks fallback colors for missing libraries and undefined material names.
     /// </summary>
     [Fact]
