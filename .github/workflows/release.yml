@@ -24,7 +24,7 @@ permissions:
 env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
-  APP_PROJECT: src/Photon.App/Photon.App.csproj
+  APP_PROJECT: Software/Quellen/src/Photon.App/Photon.App.csproj
 
 jobs:
   # Releases are only allowed from main (stable sprint state)
