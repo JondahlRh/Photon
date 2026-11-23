@@ -1,6 +1,6 @@
 // -----------------------------------------------------------------------------
-// Author:        XISander, BrackyDayn, MJZgh
-// AI Assistance: Claude for project skeleton, ChatGpt Codex for help with understanding and merge conflict resolution.
+// Author:        XISander, BrackyDayn, MJZgh, Florian
+// AI Assistance: Claude for project skeleton, ChatGpt Codex for help with understanding and merge conflict resolution, Claude for Information and Bugs
 // -----------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
@@ -13,6 +13,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Microsoft.Extensions.Logging;
 using Photon.App.Imaging;
+using Photon.App.Platform.Skia;
 using Photon.Application.ViewModels;
 using Photon.Core.Scenes;
 
@@ -39,7 +40,8 @@ public partial class MainWindow : Window
         AvaloniaXamlLoader.Load(this);
 
         var viewModel = new MainWindowViewModel(
-            Program.Loggers.CreateLogger<MainWindowViewModel>()
+            Program.Loggers.CreateLogger<MainWindowViewModel>(),
+            new SkiaImageExporter()
         );
 
         DataContext = viewModel;
@@ -158,6 +160,79 @@ public partial class MainWindow : Window
             )
         {
             viewModel.StatusText = $"Import failed: {exception.Message}";
+        }
+        finally
+        {
+            button.IsEnabled = true;
+        }
+    }
+
+    /// <summary>
+    /// Opens a save dialog and saves the render result as PNG
+    /// </summary>
+    /// <param name="sender">The save button.</param>
+    /// <param name="e">The button click event arguments.</param>
+    private async void SavePngClicked(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button button || DataContext is not MainWindowViewModel viewModel)
+        {
+            return;
+        }
+
+        button.IsEnabled = false;
+
+        try
+        {
+            if (!StorageProvider.CanSave)
+            {
+                throw new NotSupportedException("Saving files is unavailable on this platform.");
+            }
+
+            FilePickerSaveOptions options = new FilePickerSaveOptions
+            {
+                Title = "Save render result as PNG",
+                SuggestedFileName = "render.png",
+                DefaultExtension = "png",
+                FileTypeChoices = new FilePickerFileType[]
+                {
+                    new FilePickerFileType("PNG image") { Patterns = new string[] { "*.png" } },
+                },
+            };
+
+            IStorageFile? file = await StorageProvider.SaveFilePickerAsync(options);
+
+            if (file is null)
+            {
+                return; // user cancelled
+            }
+
+            using (file)
+            {
+                string? path = file.TryGetLocalPath();
+
+                if (path is null)
+                {
+                    throw new NotSupportedException("Please select a location on your computer.");
+                }
+
+                if (!path.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+                {
+                    path += ".png";
+                }
+
+                await viewModel.SavePngAsync(path);
+            }
+        }
+        catch (Exception exception)
+            when (exception
+                    is IOException
+                        or UnauthorizedAccessException
+                        or NotSupportedException
+                        or InvalidOperationException
+                        or ArgumentException
+            )
+        {
+            viewModel.StatusText = $"Save failed: {exception.Message}";
         }
         finally
         {
