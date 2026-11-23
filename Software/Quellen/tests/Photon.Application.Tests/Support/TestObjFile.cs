@@ -7,7 +7,7 @@ namespace Photon.Application.Tests.Support;
 
 internal sealed class TestObjFile : IDisposable
 {
-    public TestObjFile()
+    public TestObjFile(string? geometry = null)
     {
         Path = System.IO.Path.Combine(
             System.IO.Path.GetTempPath(),
@@ -16,12 +16,13 @@ internal sealed class TestObjFile : IDisposable
 
         File.WriteAllText(
             Path,
-            """
-            v -3 -3 0
-            v 3 -3 0
-            v 0 3 0
-            f 1 2 3
-            """
+            geometry
+                ?? """
+                v -3 -3 0
+                v 3 -3 0
+                v 0 3 0
+                f 1 2 3
+                """
         );
     }
 

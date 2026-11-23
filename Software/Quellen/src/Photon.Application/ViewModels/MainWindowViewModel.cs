@@ -1,8 +1,10 @@
 // -----------------------------------------------------------------------------
 // Author:        BrackyDayn, Florian Hipp, MJZgh
-// AI Assistance: ChatGpt for Triangle coordiantes, Summary and Exeptions; Claude for logging documentation; ChatGPT Codex for merge conflict resolution; inspiration from https://docs.avaloniaui.net/docs/how-to/mvvm-how-to
+// AI Assistance: ChatGpt for Triangle coordiantes, Summary and Exeptions; Claude for logging documentation; ChatGPT Codex for merge conflict resolution and free camera rotation; inspiration from https://docs.avaloniaui.net/docs/how-to/mvvm-how-to
 // -----------------------------------------------------------------------------
 using System;
+using System.ComponentModel;
+using System.Drawing;
 using System.IO;
 using System.Numerics;
 using System.Threading;
@@ -37,6 +39,20 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// The model most recently imported successfully.
     /// </summary>
     private Model? _loadedModel;
+
+    /// <summary>The point light currently being edited.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasLight))]
+    private LightViewModel? _light;
+
+    /// <summary>
+    /// Gets whether a point light has been added.
+    /// </summary>
+    public bool HasLight => Light is not null;
+
+    /// <summary>The latest valid point light for the preview.</summary>
+    [ObservableProperty]
+    private PointLight? _previewLight;
 
     /// <summary>The renderer used to generate images.</summary>
     private readonly RayTracer _renderer = new RayTracer();
@@ -75,6 +91,33 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>Camera position Z</summary>
     [ObservableProperty]
     private float _cameraPosZ = 5f;
+
+    /// <summary>
+    /// Horizontal camera rotation around the model, in degrees.
+    /// </summary>
+    [ObservableProperty]
+    private double _cameraYaw = 135.0;
+
+    /// <summary>
+    /// Vertical camera inclination, in degrees.
+    /// </summary>
+    [ObservableProperty]
+    private double _cameraPitch = 35.26439;
+
+    /// <summary>
+    /// The camera orientation around the model.
+    /// </summary>
+    [ObservableProperty]
+    private Quaternion _cameraOrientation = Quaternion.CreateFromRotationMatrix(
+        Matrix4x4.CreateRotationX(-35.26439f * MathF.PI / 180f)
+            * Matrix4x4.CreateRotationY(135f * MathF.PI / 180f)
+    );
+
+    /// <summary>
+    /// The camera zoom factor; one represents the initial framing.
+    /// </summary>
+    [ObservableProperty]
+    private double _cameraZoom = 1.0;
 
     /// <summary>Target position X</summary>
     [ObservableProperty]
@@ -182,7 +225,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Creates a scene using the imported model and a fixed camera.
+    /// Creates a scene with a camera fitted to the imported model's bounds.
     /// </summary>
     /// <returns>The scene to render.</returns>
     private Scene CreateRenderScene()
@@ -190,21 +233,20 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Model model =
             _loadedModel ?? throw new InvalidOperationException("Import model before rendering");
 
-        int width = RenderWidth;
-        int height = RenderHeight;
+        var camera = Camera.FrameBounds(
+            model.Bounds,
+            RenderWidth,
+            RenderHeight,
+            CameraOrientation,
+            (float)CameraZoom
+        );
 
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
+        PointLight? light = PreviewLight;
+        ILightSource[] lights = light is null
+            ? Array.Empty<ILightSource>()
+            : new ILightSource[] { light };
 
-        Matrix4x4 viewToWorld =
-            Matrix4x4.CreateScale(4f / height)
-            * Matrix4x4.CreateTranslation(0f, 0f, 5f)
-            * Matrix4x4.CreateRotationX(-MathF.PI / 6f)
-            * Matrix4x4.CreateRotationY(MathF.PI / 4f);
-
-        var camera = new Camera(viewToWorld, width, height, new Vector3(0f, 0f, height));
-
-        var lighting = new Lighting(Vector3.Zero, []);
+        var lighting = new Lighting(new Vector3(0.15f), lights);
 
         return new Scene(model, lighting, camera);
     }
@@ -251,9 +293,136 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Rotates the camera around its own axes.
+    /// </summary>
+    /// <param name="horizontalDegrees">The horizontal rotation.</param>
+    /// <param name="verticalDegrees">The vertical rotation.</param>
+    /// <param name="rollDegrees">The rotation around the viewing axis.</param>
+    public void RotateCamera(float horizontalDegrees, float verticalDegrees, float rollDegrees = 0f)
+    {
+        float radians = MathF.PI / 180f;
+
+        Matrix4x4 rotation =
+            Matrix4x4.CreateRotationX(verticalDegrees * radians)
+            * Matrix4x4.CreateRotationY(horizontalDegrees * radians)
+            * Matrix4x4.CreateRotationZ(rollDegrees * radians);
+
+        Quaternion change = Quaternion.CreateFromRotationMatrix(rotation);
+
+        CameraOrientation = Quaternion.Normalize(CameraOrientation * change);
+    }
+
     /// <summary>Switches from the result view back to the scene editor.</summary>
     [RelayCommand]
     private void EditScene() => IsResultVisible = false;
+
+    /// <summary>
+    /// Restores the initial camera orientation.
+    /// </summary>
+    [RelayCommand]
+    private void ResetCamera()
+    {
+        CameraOrientation = Quaternion.CreateFromRotationMatrix(
+            Matrix4x4.CreateRotationX(-35.26439f * MathF.PI / 180f)
+                * Matrix4x4.CreateRotationY(135f * MathF.PI / 180f)
+        );
+        CameraZoom = 1.0;
+    }
+
+    /// <summary>
+    /// Adds a white point light near the loaded model.
+    /// </summary>
+    [RelayCommand]
+    private void AddLight()
+    {
+        if (_loadedModel is null)
+        {
+            StatusText = "Import a model before adding a light.";
+            return;
+        }
+
+        if (HasLight)
+        {
+            return;
+        }
+
+        float radius = MathF.Max(0.01f, _loadedModel.Bounds.Size.Length() * 0.5f);
+
+        Vector3 offset = Vector3.Transform(new Vector3(0.6f, 0.6f, 1f) * radius, CameraOrientation);
+
+        Vector3 position = _loadedModel.Bounds.Center + offset;
+
+        Light = new LightViewModel
+        {
+            PositionX = position.X,
+            PositionY = position.Y,
+            PositionZ = position.Z,
+            Intensity = 1f,
+        };
+
+        StatusText = "Point light added.";
+    }
+
+    /// <summary>
+    /// Removes the current point light.
+    /// </summary>
+    [RelayCommand]
+    private void RemoveLight()
+    {
+        Light = null;
+        StatusText = "Point light removed.";
+    }
+
+    /// <summary>
+    /// Updates subscriptions when the edited light changes.
+    /// </summary>
+    /// <param name="oldValue">The previously edited light.</param>
+    /// <param name="newValue">The newly edited light.</param>
+    partial void OnLightChanged(LightViewModel? oldValue, LightViewModel? newValue)
+    {
+        if (oldValue is not null)
+        {
+            oldValue.PropertyChanged -= LightPropertyChanged;
+        }
+
+        if (newValue is not null)
+        {
+            newValue.PropertyChanged += LightPropertyChanged;
+        }
+
+        UpdatePreviewLight();
+    }
+
+    /// <summary>
+    /// Refreshes the preview light after an editor value changes.
+    /// </summary>
+    /// <param name="sender">The edited light.</param>
+    /// <param name="e">The changed property.</param>
+    private void LightPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        UpdatePreviewLight();
+    }
+
+    /// <summary>
+    /// Publishes valid light values or reports invalid input.
+    /// </summary>
+    private void UpdatePreviewLight()
+    {
+        try
+        {
+            PreviewLight = Light?.ToPointLight();
+
+            if (Light is not null)
+            {
+                StatusText = "light updated.";
+            }
+        }
+        catch (ArgumentException exception)
+        {
+            StatusText = $"Invalid light: {exception.Message}";
+        }
+    }
 
     /// <summary>Switches to the last render result.</summary>
     [RelayCommand]

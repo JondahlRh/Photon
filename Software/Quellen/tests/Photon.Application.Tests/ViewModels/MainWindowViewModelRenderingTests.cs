@@ -5,6 +5,7 @@
 
 using Photon.Application.Tests.Support;
 using Photon.Application.ViewModels;
+using Photon.Core.Rendering;
 
 namespace Photon.Application.Tests.ViewModels;
 
@@ -51,6 +52,47 @@ public sealed class MainWindowViewModelRenderingTests
         Assert.True(viewModel.IsResultVisible);
         Assert.Equal(100d, viewModel.ProgressPercent);
         Assert.Equal("Render finished.", viewModel.StatusText);
+    }
+
+    [Theory]
+    [InlineData(100f, 200f, 150f, 60f, 48, 32)]
+    [InlineData(0.01f, 0f, 0f, 0f, 48, 32)]
+    [InlineData(20f, -200f, -150f, -60f, 24, 48)]
+    public async Task RenderFramesModelsWithDifferentSizesAndPositions(
+        float scale,
+        float x,
+        float y,
+        float z,
+        int width,
+        int height
+    )
+    {
+        using var model = new TestObjFile(
+            FormattableString.Invariant(
+                $"""
+                v {x - scale} {y - scale} {z}
+                v {x + scale} {y - scale} {z}
+                v {x} {y + scale} {z}
+                f 1 2 3
+                """
+            )
+        );
+        var viewModel = new MainWindowViewModel { RenderWidth = width, RenderHeight = height };
+        await viewModel.LoadModelAsync(model.Path);
+
+        await viewModel.StartRenderCommand.ExecuteAsync(null);
+
+        var result = viewModel.RenderResult;
+        Assert.NotNull(result);
+        Assert.NotEqual(
+            RenderSettings.Default.BackgroundColor,
+            result.GetPixel(width / 2, height / 2)
+        );
+        Assert.Equal(RenderSettings.Default.BackgroundColor, result.GetPixel(0, 0));
+        Assert.Equal(
+            RenderSettings.Default.BackgroundColor,
+            result.GetPixel(width - 1, height - 1)
+        );
     }
 
     [Theory]

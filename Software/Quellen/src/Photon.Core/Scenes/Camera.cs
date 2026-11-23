@@ -1,6 +1,6 @@
 ﻿// -----------------------------------------------------------------------------
 // Author:        Luca Lengl
-// AI Assistance: Claude for Information, Bug and Warning
+// AI Assistance: Claude for Information, Bug and Warning; ChatGPT Codex for automatic model framing
 // -----------------------------------------------------------------------------
 
 using System.Numerics;
@@ -108,6 +108,113 @@ public sealed class Camera
     /// Gets the projection center ("eye") in world coordinates.
     /// </summary>
     public Vector3 Position => _projectionCenterWorld;
+
+    /// <summary>
+    /// Gets the camera's upward direction in world coordinates.
+    /// </summary>
+    public Vector3 Up => Vector3.Normalize(Vector3.TransformNormal(Vector3.UnitY, ViewToWorld));
+
+    /// <summary>
+    /// Creates a perspective camera that shows the complete bounding box with a small margin.
+    /// </summary>
+    /// <param name="bounds">The nonempty bounding box of the model in world coordinates.</param>
+    /// <param name="width">The image width in pixels; greater than zero.</param>
+    /// <param name="height">The image height in pixels; greater than zero.</param>
+    /// <param name="yawDegrees">The horizontal rotation in degrees.</param>
+    /// <param name="pitchDegrees">The vertical inclination in degrees.</param>
+    /// <returns>A camera looking at the model center with a vertical field of view of 60 degrees.</returns>
+    /// <exception cref="ArgumentException">Thrown if the bounds are empty or not finite.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown if an image dimension is not positive.</exception>
+    public static Camera FrameBounds(
+        Aabb bounds,
+        int width,
+        int height,
+        float yawDegrees = 135f,
+        float pitchDegrees = 35.26439f
+    )
+    {
+        float yaw = yawDegrees * MathF.PI / 180f;
+        float pitch = pitchDegrees * MathF.PI / 180f;
+
+        Matrix4x4 rotation = Matrix4x4.CreateRotationX(-pitch) * Matrix4x4.CreateRotationY(yaw);
+
+        return FrameBounds(bounds, width, height, Quaternion.CreateFromRotationMatrix(rotation));
+    }
+
+    /// <summary>
+    /// Creates a camera fitted to the model with a freely chosen orientation.
+    /// </summary>
+    /// <param name="bounds">The finite, nonempty model bounds.</param>
+    /// <param name="width">The positive image width.</param>
+    /// <param name="height">The positive image height.</param>
+    /// <param name="orientation">The finite, nonzero camera rotation.</param>
+    /// <param name="zoom">The positive zoom factor; one uses the initial framing.</param>
+    /// <returns>A camera looking towards the model center.</returns>
+    /// <exception cref="ArgumentException">
+    /// Thrown if the bounds or orientation are invalid.
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// Thrown if an image dimension is not positive.
+    /// </exception>
+    public static Camera FrameBounds(
+        Aabb bounds,
+        int width,
+        int height,
+        Quaternion orientation,
+        float zoom = 1f
+    )
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
+
+        if (
+            bounds.IsEmpty
+            || !VectorMath.IsFinite(bounds.Center)
+            || !VectorMath.IsFinite(bounds.Size)
+        )
+        {
+            throw new ArgumentException(
+                "Model bounds must be finite and nonempty.",
+                nameof(bounds)
+            );
+        }
+
+        float lengthSquared = orientation.LengthSquared();
+
+        if (!float.IsFinite(lengthSquared) || lengthSquared <= 0f)
+        {
+            throw new ArgumentException(
+                "Camera orientation must be finite and nonzero.",
+                nameof(orientation)
+            );
+        }
+
+        if (!float.IsFinite(zoom) || zoom <= 0f)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(zoom),
+                "Zoom must be finite and greater than zero."
+            );
+        }
+
+        float verticalHalfAngle = MathF.PI / 6f;
+        float horizontalHalfAngle = MathF.Atan(MathF.Tan(verticalHalfAngle) * width / height);
+
+        float radius = MathF.Max(0.01f, bounds.Size.Length() * 0.5f);
+        float distance =
+            1.1f * radius / MathF.Sin(MathF.Min(verticalHalfAngle, horizontalHalfAngle));
+        distance /= zoom;
+        float pixelSize = 2f * distance * MathF.Tan(verticalHalfAngle) / height;
+
+        Matrix4x4 rotation = Matrix4x4.CreateFromQuaternion(Quaternion.Normalize(orientation));
+
+        Matrix4x4 viewToWorld =
+            Matrix4x4.CreateScale(pixelSize)
+            * rotation
+            * Matrix4x4.CreateTranslation(bounds.Center);
+
+        return new Camera(viewToWorld, width, height, new Vector3(0f, 0f, distance / pixelSize));
+    }
 
     /// <summary>
     /// Creates the primary ray through the center of a pixel.
