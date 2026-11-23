@@ -1,11 +1,14 @@
 // -----------------------------------------------------------------------------
 // Author:        BrackyDayn
-// AI Assistance: ChatGpt Codex for summary and Exeptions, inspiration from https://opentk.net/learn/chapter1/2-hello-triangle.html?tabs=onload-opentk4%2Conrender-opentk4%2Cresize-opentk4
+// AI Assistance: ChatGpt Codex for summary, Exeptions and free camera orientation, inspiration from https://opentk.net/learn/chapter1/2-hello-triangle.html?tabs=onload-opentk4%2Conrender-opentk4%2Cresize-opentk4
 // -----------------------------------------------------------------------------
 using System;
+using System.Numerics;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.OpenGL;
 using Avalonia.OpenGL.Controls;
+using Avalonia.Rendering;
 using OpenTK.Graphics.ES30;
 using Photon.App.Platform.OpenGL;
 using Photon.Core.Scenes;
@@ -15,12 +18,21 @@ namespace Photon.App.Views;
 /// <summary>
 /// Displays a model using OpenGL inside an Avalonia control.
 /// </summary>
-public sealed class ModelPreviewControl : OpenGlControlBase
+public sealed class ModelPreviewControl : OpenGlControlBase, ICustomHitTest
 {
     /// <summary>
     /// Renderer responsible for drawing the model.
     /// </summary>
     private TriangleRenderer? _renderer;
+
+    /// <summary>The current camera rotation.</summary>
+    private Quaternion _cameraOrientation = Quaternion.Identity;
+
+    /// <summary>The current point light, or null when none is active.</summary>
+    private PointLight? _light;
+
+    /// <summary>The current camera zoom factor.</summary>
+    private float _cameraZoom = 1f;
 
     /// <summary>
     /// The model currently assigned to the preview.
@@ -86,7 +98,7 @@ public sealed class ModelPreviewControl : OpenGlControlBase
         int width = Math.Max(1, (int)(Bounds.Width * scaling));
         int height = Math.Max(1, (int)(Bounds.Height * scaling));
 
-        _renderer.Render(fb, width, height);
+        _renderer.Render(fb, width, height, _cameraOrientation, _cameraZoom, _light);
     }
 
     /// <inheritdoc/>
@@ -103,5 +115,37 @@ public sealed class ModelPreviewControl : OpenGlControlBase
         // GPU resources are already invalid after the context is lost.
         _renderer = null;
         _modelNeedsUpload = true;
+    }
+
+    /// <summary>
+    /// Updates the camera orientation and requests a preview frame.
+    /// <param name="orientation">The camera rotation.</param>
+    /// <param name="zoom">The camera zoom factor.</param>
+    /// </summary>
+    public void UpdateCamera(Quaternion orientation, float zoom)
+    {
+        _cameraOrientation = orientation;
+        _cameraZoom = zoom;
+        RequestNextFrameRendering();
+    }
+
+    /// <summary>
+    /// Updates the point light and requests a preview frame.
+    /// </summary>
+    /// <param name="light">The point light, or null to remove it.</param>
+    public void UpdateLight(PointLight? light)
+    {
+        _light = light;
+        RequestNextFrameRendering();
+    }
+
+    /// <summary>
+    /// Accepts pointer input within the preview area.
+    /// </summary>
+    /// <param name="point">The pointer position in local coordinates.</param>
+    /// <returns>Whether the point lies inside the preview.</returns>
+    public bool HitTest(Point point)
+    {
+        return new Rect(Bounds.Size).Contains(point);
     }
 }
