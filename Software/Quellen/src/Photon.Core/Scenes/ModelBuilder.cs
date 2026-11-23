@@ -16,13 +16,14 @@ namespace Photon.Core.Scenes;
 /// <remarks>
 /// <para>
 /// All indices are zero-based; converting the one-based and negative indices of OBJ files
-/// is the importer's job. Every call to <see cref="UseMaterial"/> starts a new group, and
+/// is the importer's job. Every call to <see cref="UseMaterial"/> or
+/// <see cref="UseDefaultMaterial"/> starts a new group, and
 /// every group with at least one face becomes one <see cref="Mesh"/>.
 /// </para>
 /// <para>
-/// Corners without a normal get a calculated vertex normal: the area-weighted average of the
-/// normals of all faces that share the position, across all groups, so no seam appears where
-/// the material changes.
+/// Corners without a normal, or with a normal added by <see cref="AddPlaceholderNormal"/>, get a
+/// calculated vertex normal: the area-weighted average of the normals of all faces that share
+/// the position, across all groups, so no seam appears where the material changes.
 /// </para>
 /// <para>This class is not thread-safe.</para>
 /// </remarks>
@@ -34,9 +35,9 @@ public sealed class ModelBuilder
     private readonly List<Vector3> _positions = [];
 
     /// <summary>
-    /// The normals added so far.
+    /// The normals added so far; <c>null</c> for a placeholder whose corners use the calculated normal.
     /// </summary>
-    private readonly List<Vector3> _normals = [];
+    private readonly List<Vector3?> _normals = [];
 
     /// <summary>
     /// The registered materials by name.
@@ -68,7 +69,7 @@ public sealed class ModelBuilder
     public int PositionCount => _positions.Count;
 
     /// <summary>
-    /// Gets the number of normals added so far.
+    /// Gets the number of normals added so far, including placeholders.
     /// </summary>
     public int NormalCount => _normals.Count;
 
@@ -99,7 +100,10 @@ public sealed class ModelBuilder
     /// </summary>
     /// <param name="normal">The normal vector.</param>
     /// <returns>The zero-based index of the new normal.</returns>
-    /// <exception cref="ArgumentException">Thrown if a component is not finite or the vector has zero length.</exception>
+    /// <exception cref="ArgumentException">
+    /// Thrown if a component is not finite or the vector has zero length. Use
+    /// <see cref="AddPlaceholderNormal"/> to keep the index of such a normal.
+    /// </exception>
     public int AddNormal(Vector3 normal)
     {
         if (!VectorMath.IsFinite(normal) || VectorMath.IsNearlyZero(normal))
@@ -111,6 +115,18 @@ public sealed class ModelBuilder
         }
 
         _normals.Add(normal);
+        return _normals.Count - 1;
+    }
+
+    /// <summary>
+    /// Adds a placeholder for a normal that cannot be used, for example a zero vector read from a
+    /// file. It keeps the normal indices of later normals unchanged; corners that refer to it get
+    /// the calculated vertex normal, as if they had no normal.
+    /// </summary>
+    /// <returns>The zero-based index of the placeholder.</returns>
+    public int AddPlaceholderNormal()
+    {
+        _normals.Add(null);
         return _normals.Count - 1;
     }
 
@@ -158,6 +174,16 @@ public sealed class ModelBuilder
     }
 
     /// <summary>
+    /// Starts a new group whose faces use <see cref="Material.Default"/>, even if a registered
+    /// material has the same name.
+    /// </summary>
+    public void UseDefaultMaterial()
+    {
+        _currentGroup = new FaceGroup(Material.Default);
+        _groups.Add(_currentGroup);
+    }
+
+    /// <summary>
     /// Adds a face with three or more corners. Faces with more corners are validated as simple
     /// polygons and split by ear clipping, so concave faces are triangulated correctly.
     /// </summary>
@@ -166,6 +192,26 @@ public sealed class ModelBuilder
     /// <exception cref="ArgumentOutOfRangeException">Thrown if an index refers to no position or normal.</exception>
     /// <exception cref="FormatException">Thrown if the polygon is degenerate or self-intersecting.</exception>
     public void AddFace(ReadOnlySpan<FaceCorner> corners)
+    {
+        if (!TryAddFace(corners))
+        {
+            throw new FormatException("The polygon is degenerate: its corners lie on one line.");
+        }
+    }
+
+    /// <summary>
+    /// Adds a face like <see cref="AddFace"/>, but skips a degenerate face instead of throwing.
+    /// Real models often contain such faces, for example triangles with two equal corners.
+    /// </summary>
+    /// <param name="corners">The corners in order around the face.</param>
+    /// <returns>
+    /// <c>true</c> if the face was added; <c>false</c> if it was skipped because its corners lie
+    /// on one line, so it has no area.
+    /// </returns>
+    /// <exception cref="ArgumentException">Thrown if fewer than three corners are given.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown if an index refers to no position or normal.</exception>
+    /// <exception cref="FormatException">Thrown if the polygon is self-intersecting.</exception>
+    public bool TryAddFace(ReadOnlySpan<FaceCorner> corners)
     {
         if (corners.Length < 3)
         {
@@ -193,15 +239,16 @@ public sealed class ModelBuilder
             }
         }
 
-        AddTriangulated(corners);
+        return TryAddTriangulated(corners);
     }
 
     /// <summary>
     /// Splits a simple polygon into triangles by ear clipping, so concave polygons are triangulated correctly.
     /// </summary>
     /// <param name="corners">The polygon corners in order.</param>
+    /// <returns><c>true</c> if the polygon was added; <c>false</c> if it is degenerate and was skipped.</returns>
     /// <exception cref="FormatException">Thrown when the polygon is self-intersecting and cannot be triangulated.</exception>
-    private void AddTriangulated(ReadOnlySpan<FaceCorner> corners)
+    private bool TryAddTriangulated(ReadOnlySpan<FaceCorner> corners)
     {
         var points = new Vector3[corners.Length];
 
@@ -216,7 +263,7 @@ public sealed class ModelBuilder
 
         if (normal.Length() <= tolerance)
         {
-            throw new FormatException("The polygon is degenerate: its corners lie on one line.");
+            return false;
         }
 
         normal = Vector3.Normalize(normal);
@@ -265,6 +312,7 @@ public sealed class ModelBuilder
         }
 
         EmitTriangle(corners[remaining[0]], corners[remaining[1]], corners[remaining[2]]);
+        return true;
     }
 
     /// <summary>
@@ -574,11 +622,10 @@ public sealed class ModelBuilder
                 vertexIndex = vertices.Count;
                 vertexLookup.Add(corner, vertexIndex);
                 vertices.Add(_positions[corner.PositionIndex]);
-                normals.Add(
-                    corner.NormalIndex is int normalIndex
-                        ? _normals[normalIndex]
-                        : calculatedNormals[corner.PositionIndex]
-                );
+                Vector3? normal = corner.NormalIndex is int normalIndex
+                    ? _normals[normalIndex]
+                    : null;
+                normals.Add(normal ?? calculatedNormals[corner.PositionIndex]);
             }
 
             indices[i] = vertexIndex;
