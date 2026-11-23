@@ -69,6 +69,13 @@
           <StackPanel Margin="12" Spacing="6">
             <TextBlock Text="Camera" Classes="heading" Margin="0" />
             <TextBlock Text="Position (X, Y, Z)" Classes="label" />
+            <Button
+              Content="Kamera zurücksetzen"
+              Command="{Binding ResetCameraCommand}"
+              HorizontalAlignment="Stretch"
+              HorizontalContentAlignment="Center"
+              Margin="0,0,0,8"
+            />
             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="4">
               <TextBox Grid.Column="0" Text="{Binding CameraPosX}" />
               <TextBox Grid.Column="1" Text="{Binding CameraPosY}" />
@@ -114,31 +121,43 @@
             <Separator Margin="0,8" />
 
             <TextBlock Text="Lights" Classes="heading" Margin="0" />
-            <TextBlock Text="No lights yet" Classes="label" FontStyle="Italic" IsVisible="False" />
+            <TextBlock
+              Text="No lights yet"
+              Classes="label"
+              FontStyle="Italic"
+              IsVisible="{Binding !HasLight}"
+            />
 
-            <Border BorderBrush="Gray" BorderThickness="1" Padding="8">
+            <Border
+              BorderBrush="Gray"
+              BorderThickness="1"
+              Padding="8"
+              IsVisible="{Binding HasLight}"
+            >
               <StackPanel Spacing="6">
-                <TextBlock Text="Light 1" FontWeight="SemiBold" />
+                <TextBlock Text="Light 1 — White" FontWeight="SemiBold" />
                 <TextBlock Text="Position (X, Y, Z)" Classes="label" />
                 <Grid ColumnDefinitions="*,*,*" ColumnSpacing="4">
-                  <TextBox Grid.Column="0" Text="3" />
-                  <TextBox Grid.Column="1" Text="5" />
-                  <TextBox Grid.Column="2" Text="2" />
-                </Grid>
-                <Grid ColumnDefinitions="*, 90">
-                  <TextBlock Text="Color (#RRGGBB)" VerticalAlignment="Center" />
-                  <TextBox Grid.Column="1" Text="#FFFFFF" />
+                  <TextBox Grid.Column="0" Text="{Binding Light.PositionX}" />
+                  <TextBox Grid.Column="1" Text="{Binding Light.PositionY}" />
+                  <TextBox Grid.Column="2" Text="{Binding Light.PositionZ}" />
                 </Grid>
                 <Grid ColumnDefinitions="*, 90">
                   <TextBlock Text="Intensity" VerticalAlignment="Center" />
-                  <TextBox Grid.Column="1" Text="1.0" />
+                  <TextBox Grid.Column="1" Text="{Binding Light.Intensity}" />
                 </Grid>
-                <Button Content="Remove Light" HorizontalAlignment="Left" />
+                <Button
+                  Content="Remove Light"
+                  Command="{Binding RemoveLightCommand}"
+                  HorizontalAlignment="Left"
+                />
               </StackPanel>
             </Border>
 
             <Button
               Content="+ Add Light"
+              Command="{Binding AddLightCommand}"
+              IsEnabled="{Binding !HasLight}"
               HorizontalAlignment="Stretch"
               HorizontalContentAlignment="Center"
             />
@@ -155,7 +174,14 @@
 
       <Grid Margin="12">
         <Border Background="#0e3361" BorderBrush="Gray" BorderThickness="1">
-          <views:ModelPreviewControl x:Name="Preview" />
+          <views:ModelPreviewControl
+            x:Name="Preview"
+            PointerPressed="PreviewPointerPressed"
+            PointerMoved="PreviewPointerMoved"
+            PointerReleased="PreviewPointerReleased"
+            PointerCaptureLost="PreviewPointerCaptureLost"
+            PointerWheelChanged="PreviewPointerWheelChanged"
+          />
         </Border>
       </Grid>
     </DockPanel>

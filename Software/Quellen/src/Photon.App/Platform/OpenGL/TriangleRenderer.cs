@@ -1,6 +1,6 @@
 // -----------------------------------------------------------------------------
 // Author:        BrackyDayn
-// AI Assistance: ChatGpt for summary, exceptions and intigration,
+// AI Assistance: ChatGpt for summary, exceptions and intigration; ChatGPT Codex for automatic model framing
 // -----------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
@@ -9,6 +9,7 @@ using System.Numerics;
 using System.Runtime.Versioning;
 using Avalonia.Animation.Easings;
 using OpenTK.Graphics.ES30;
+using Photon.Core.Mathematics;
 using Photon.Core.Scenes;
 
 namespace Photon.App.Platform.OpenGL;
@@ -44,6 +45,11 @@ internal sealed class TriangleRenderer
     private int _vertexCount;
 
     /// <summary>
+    /// World-space bounds used to frame the uploaded model and choose clipping planes.
+    /// </summary>
+    private Aabb _modelBounds = Aabb.Empty;
+
+    /// <summary>
     /// Location of the camera's view-projection uniform.
     /// </summary>
     private int _viewProjectionLocation;
@@ -52,6 +58,9 @@ internal sealed class TriangleRenderer
     /// Location of the light position uniform.
     /// </summary>
     private int _lightPositionLocation;
+
+    /// <summary>The location of the light intensity uniform.</summary>
+    private int _lightIntensityLocation;
 
     /// <summary>
     /// Initializes GPU resources without loading a model.
@@ -66,6 +75,8 @@ internal sealed class TriangleRenderer
             _viewProjectionLocation = GL.GetUniformLocation(_shaderProgram, "viewProjection");
 
             _lightPositionLocation = GL.GetUniformLocation(_shaderProgram, "lightPosition");
+
+            _lightIntensityLocation = GL.GetUniformLocation(_shaderProgram, "lightIntensity");
 
             _vao = GL.GenVertexArray();
             GL.BindVertexArray(_vao);
@@ -163,6 +174,7 @@ internal sealed class TriangleRenderer
         GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
 
         _vertexCount = vertexData.Length / FloatsPerVertex;
+        _modelBounds = model.Bounds;
     }
 
     /// <summary>
@@ -194,11 +206,21 @@ internal sealed class TriangleRenderer
 
     /// <summary>
     /// Renders the model into the specified framebuffer.
-    /// </summary>
     /// <param name="framebuffer">Avalonia's framebuffer.</param>
     /// <param name="width">Viewport width in physical pixels.</param>
     /// <param name="height">Viewport height in physical pixels.</param>
-    public void Render(int framebuffer, int width, int height)
+    /// <param name="orientation">The camera rotation.</param>
+    /// <param name="zoom">The camera zoom factor.</param>
+    /// <param name="light">The active point light, or null for ambient lighting only.</param>
+    /// </summary>
+    public void Render(
+        int framebuffer,
+        int width,
+        int height,
+        Quaternion orientation,
+        float zoom,
+        PointLight? light
+    )
     {
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, framebuffer);
         GL.Viewport(0, 0, width, height);
@@ -220,17 +242,16 @@ internal sealed class TriangleRenderer
             return;
         }
 
-        Matrix4x4 view = Matrix4x4.CreateLookAt(
-            new Vector3(3.0f, 3.0f, -3.0f),
-            Vector3.Zero,
-            Vector3.UnitY
-        );
+        var camera = Camera.FrameBounds(_modelBounds, width, height, orientation, zoom);
+        Matrix4x4 view = Matrix4x4.CreateLookAt(camera.Position, _modelBounds.Center, camera.Up);
+        float radius = MathF.Max(0.01f, _modelBounds.Size.Length() * 0.5f);
+        float distance = Vector3.Distance(camera.Position, _modelBounds.Center);
 
         Matrix4x4 projection = Matrix4x4.CreatePerspectiveFieldOfView(
             MathF.PI / 3.0f,
             (float)width / height,
-            0.1f,
-            100.0f
+            MathF.Max(radius * 0.001f, distance - (1.1f * radius)),
+            distance + (1.1f * radius)
         );
 
         // System.Numerics applies the view transform before the projection.
@@ -261,7 +282,12 @@ internal sealed class TriangleRenderer
         // OpenGL reads these values as the transpose needed by GLSL's
         // column-vector multiplication.
         GL.UniformMatrix4(_viewProjectionLocation, 1, false, matrixValues);
-        GL.Uniform3(_lightPositionLocation, 4.0f, 5.0f, 3.0f);
+
+        Vector3 lightPosition = light?.Position ?? Vector3.Zero;
+        Vector3 lightintensity = light?.Intensity ?? Vector3.Zero;
+
+        GL.Uniform3(_lightPositionLocation, lightPosition.X, lightPosition.Y, lightPosition.Z);
+        GL.Uniform3(_lightIntensityLocation, lightintensity.X, lightintensity.Y, lightintensity.Z);
 
         GL.BindVertexArray(_vao);
         GL.DrawArrays(PrimitiveType.Triangles, 0, _vertexCount);
