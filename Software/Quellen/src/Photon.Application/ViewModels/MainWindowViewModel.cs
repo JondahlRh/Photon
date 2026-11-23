@@ -29,6 +29,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>The logger of this view model.</summary>
     private readonly ILogger<MainWindowViewModel> _logger;
 
+    /// <summary>Exports the render result as image file</summary>
+    private readonly IImageExporter? _imageExporter;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="MainWindowViewModel"/> class without a logger.
     /// </summary>
@@ -65,9 +68,15 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// Initializes a new instance of the <see cref="MainWindowViewModel"/> class.
     /// </summary>
     /// <param name="logger">The logger; <see cref="NullLogger{T}"/> is used when <c>null</c>.</param>
-    public MainWindowViewModel(ILogger<MainWindowViewModel>? logger)
+    /// <param name="imageExporter">Exporter used to save PNG files.</param>
+    public MainWindowViewModel(
+        ILogger<MainWindowViewModel>? logger,
+        IImageExporter? imageExporter = null
+    )
     {
         _logger = logger ?? NullLogger<MainWindowViewModel>.Instance;
+
+        _imageExporter = imageExporter;
     }
 
     /// <summary>
@@ -171,11 +180,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [ObservableProperty]
     private double _progressPercent;
 
-    /// <summary>True wenn die Render-Ansicht (Vollbild, ohne Seitenleiste) angezeigt wird.</summary>
+    /// <summary>True wenn die Render-Ansicht angezeigt wird</summary>
     [ObservableProperty]
     private bool _isResultVisible;
 
-    /// <summary>True sobald ein Renderergebnis existiert (steuert "Show Result").</summary>
+    /// <summary>True sobald ein Renderergebnis existiert</summary>
     [ObservableProperty]
     private bool _hasRenderResult;
 
@@ -438,6 +447,32 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Message = "Render started: {Width}x{Height}, {Samples} samples, max depth {Depth}"
     )]
     private partial void LogRenderStarted(int width, int height, int samples, int depth);
+
+    /// <summary>
+    /// Saves the last render result as PNG.
+    /// </summary>
+    /// <param name="path">The target file path.</param>
+    /// <returns>A task that finishes when the file is saved.</returns>
+    public async Task SavePngAsync(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        if (_imageExporter is null)
+        {
+            throw new InvalidOperationException("No image exporter available.");
+        }
+
+        if (RenderResult is null)
+        {
+            throw new InvalidOperationException("There is no render result to save.");
+        }
+
+        StatusText = "Saving PNG...";
+
+        await _imageExporter.ExportPngAsync(RenderResult, path);
+
+        StatusText = $"Saved {Path.GetFileName(path)}.";
+    }
 
     /// <summary>Logs a failed render operation.</summary>
     /// <param name="exception">The exception that caused the failure.</param>
