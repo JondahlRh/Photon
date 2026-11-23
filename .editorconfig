@@ -91,6 +91,6 @@ dotnet_diagnostic.SA1600.severity = warning
 dotnet_diagnostic.SA1601.severity = warning
 dotnet_diagnostic.SA1602.severity = warning
 
-[tests/**.cs]
+[Software/Quellen/tests/**.cs]
 # Test method names may use underscores (Method_Scenario_Result)
 dotnet_diagnostic.CA1707.severity = none

@@ -216,7 +216,7 @@ Bitte **kein `git rebase`** auf bereits gepushten Branches und **kein `git push 
 ## Pakete hinzufügen oder aktualisieren
 
 ```powershell
-dotnet add src/Photon.App package <Paketname>
+dotnet add Software/Quellen/src/Photon.App package <Paketname>
 dotnet restore
 ```
 
