@@ -288,7 +288,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
             LogRenderStarted(RenderWidth, RenderHeight, SamplesPerPixel, MaxRecursionDepth);
 
-            await Task.Run(() =>
+            RenderStatistics statistics = await Task.Run(() =>
                 _renderer.Render(scene, RenderSettings.Default, target, CancellationToken.None)
             );
 
@@ -298,6 +298,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
             IsResultVisible = true;
             StatusText = "Render finished.";
             LogSimpleMessage("Render finished.");
+            LogRenderStatistics(
+                statistics.Width,
+                statistics.Height,
+                statistics.TriangleCount,
+                statistics.BvhBuildTime.TotalMilliseconds,
+                statistics.RenderTime.TotalMilliseconds,
+                statistics.RaysPerSecond
+            );
         }
         catch (Exception exception)
             when (exception is ArgumentException or InvalidOperationException or OverflowException)
@@ -452,6 +460,26 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Message = "Render started: {Width}x{Height}, {Samples} samples, max depth {Depth}"
     )]
     private partial void LogRenderStarted(int width, int height, int samples, int depth);
+
+    /// <summary>Logs the key figures of a finished render.</summary>
+    /// <param name="width">The image width.</param>
+    /// <param name="height">The image height.</param>
+    /// <param name="triangles">The number of triangles.</param>
+    /// <param name="bvhMilliseconds">The BVH build time in milliseconds.</param>
+    /// <param name="renderMilliseconds">The render time in milliseconds.</param>
+    /// <param name="raysPerSecond">The primary rays per second.</param>
+    [LoggerMessage(
+        Level = LogLevel.Information,
+        Message = "Render statistics: {Width}x{Height}, {Triangles} triangles, BVH build {BvhMilliseconds:F1} ms, render {RenderMilliseconds:F1} ms, {RaysPerSecond:F0} rays/s"
+    )]
+    private partial void LogRenderStatistics(
+        int width,
+        int height,
+        int triangles,
+        double bvhMilliseconds,
+        double renderMilliseconds,
+        double raysPerSecond
+    );
 
     /// <summary>
     /// Saves the last render result as PNG.
