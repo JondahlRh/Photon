@@ -51,9 +51,9 @@ internal static class FrameBufferBitmap
                     var color = source[x];
                     int offset = x * 4;
 
-                    row[offset] = ToSrgbByte(color.Z);
-                    row[offset + 1] = ToSrgbByte(color.Y);
-                    row[offset + 2] = ToSrgbByte(color.X);
+                    row[offset] = SrgbConverter.ToByte(color.Z);
+                    row[offset + 1] = SrgbConverter.ToByte(color.Y);
+                    row[offset + 2] = SrgbConverter.ToByte(color.X);
                     row[offset + 3] = 255;
                 }
 

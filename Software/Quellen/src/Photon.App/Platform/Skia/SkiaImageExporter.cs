@@ -5,6 +5,7 @@
 using System;
 using System.IO;
 using System.Numerics;
+using System.Threading.Tasks;
 using Photon.Core.Imaging;
 using SkiaSharp;
 
@@ -20,6 +21,11 @@ public class SkiaImageExporter : IImageExporter
     {
         ArgumentNullException.ThrowIfNull(buffer);
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        if (!buffer.IsComplete)
+        {
+            throw new ArgumentException("The render buffer must be complete.", nameof(buffer));
+        }
 
         // runs in background so the UI does not freeze
         return Task.Run(() => Export(buffer, path));
@@ -46,7 +52,11 @@ public class SkiaImageExporter : IImageExporter
                 bitmap.SetPixel(
                     x,
                     y,
-                    new SKColor(ToByte(color.X), ToByte(color.Y), ToByte(color.Z))
+                    new SKColor(
+                        SrgbConverter.ToByte(color.X),
+                        SrgbConverter.ToByte(color.Y),
+                        SrgbConverter.ToByte(color.Z)
+                    )
                 );
             }
         }
@@ -55,17 +65,5 @@ public class SkiaImageExporter : IImageExporter
         using SKData data = image.Encode(SKEncodedImageFormat.Png, 100);
         using FileStream stream = File.Create(path);
         data.SaveTo(stream);
-    }
-
-    /// <summary>
-    /// Converts a linear color value to a gamma corrected byte.
-    /// </summary>
-    /// <param name="linear">The linear color value.</param>
-    /// <returns>The gamma corrected value between 0 and 255.</returns>
-    private static byte ToByte(float linear)
-    {
-        float clamped = Math.Clamp(linear, 0f, 1f);
-        float gamma = MathF.Pow(clamped, 1f / 2.2f);
-        return (byte)((gamma * 255f) + 0.5f);
     }
 }
