@@ -70,7 +70,7 @@
             <TextBlock Text="Camera" Classes="heading" Margin="0" />
             <TextBlock Text="Position (X, Y, Z)" Classes="label" />
             <Button
-              Content="Reset Kamera"
+              Content="Reset Camera"
               Command="{Binding ResetCameraCommand}"
               HorizontalAlignment="Stretch"
               HorizontalContentAlignment="Center"
