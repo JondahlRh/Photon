@@ -113,6 +113,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [ObservableProperty]
     private double _cameraPitch = 35.26439;
 
+    /// <summary>Camera roll in degrees.</summary>
+    [ObservableProperty]
+    private double _cameraRoll;
+
     /// <summary>
     /// The camera orientation around the model.
     /// </summary>
@@ -212,6 +216,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             Model model = result.Model;
 
             _loadedModel = model;
+            UpdateCameraFields();
 
             ModelPath = path;
             StatusText = $"Loaded {Path.GetFileName(path)}: {model.TriangleCount} triangles.";
@@ -472,6 +477,141 @@ public sealed partial class MainWindowViewModel : ObservableObject
         await _imageExporter.ExportPngAsync(RenderResult, path);
 
         StatusText = $"Saved {Path.GetFileName(path)}.";
+    }
+
+    /// <summary>Prevents the fields and the camera from updating each other in a loop.</summary>
+    private bool _isSyncingCamera;
+
+    /// <summary>
+    /// Updates the camera input fields when the camera is rotated.
+    /// </summary>
+    /// <param name="value">The new camera orientation.</param>
+    partial void OnCameraOrientationChanged(Quaternion value)
+    {
+        if (!_isSyncingCamera)
+        {
+            UpdateCameraAngles();
+        }
+
+        UpdateCameraFields();
+    }
+
+    /// <summary>Rotates the camera when the yaw slider moves.</summary>
+    /// <param name="value">The new yaw in degrees.</param>
+    partial void OnCameraYawChanged(double value) => ApplyCameraAngles();
+
+    /// <summary>Rotates the camera when the pitch slider moves.</summary>
+    /// <param name="value">The new pitch in degrees.</param>
+    partial void OnCameraPitchChanged(double value) => ApplyCameraAngles();
+
+    /// <summary>Rotates the camera when the roll slider moves.</summary>
+    /// <param name="value">The new roll in degrees.</param>
+    partial void OnCameraRollChanged(double value) => ApplyCameraAngles();
+
+    /// <summary>Sets the camera orientation from yaw, pitch and roll.</summary>
+    private void ApplyCameraAngles()
+    {
+        if (_isSyncingCamera)
+        {
+            return;
+        }
+
+        float radians = MathF.PI / 180f;
+
+        Matrix4x4 rotation =
+            Matrix4x4.CreateRotationZ((float)CameraRoll * radians)
+            * Matrix4x4.CreateRotationX(-(float)CameraPitch * radians)
+            * Matrix4x4.CreateRotationY((float)CameraYaw * radians);
+
+        _isSyncingCamera = true;
+        try
+        {
+            CameraOrientation = Quaternion.CreateFromRotationMatrix(rotation);
+        }
+        finally
+        {
+            _isSyncingCamera = false;
+        }
+    }
+
+    /// <summary>
+    /// Updates the camera input fields when the camera is zoomed.
+    /// </summary>
+    /// <param name="value">The new zoom factor.</param>
+    partial void OnCameraZoomChanged(double value) => UpdateCameraFields();
+
+    /// <summary>Writes the current camera position, target and up vector into the input fields.</summary>
+    private void UpdateCameraFields()
+    {
+        if (_loadedModel is null || RenderWidth <= 0 || RenderHeight <= 0)
+        {
+            return;
+        }
+
+        Camera camera = Camera.FrameBounds(
+            _loadedModel.Bounds,
+            RenderWidth,
+            RenderHeight,
+            CameraOrientation,
+            (float)CameraZoom
+        );
+        Vector3 target = _loadedModel.Bounds.Center;
+
+        _isSyncingCamera = true;
+        try
+        {
+            CameraPosX = Round(camera.Position.X);
+            CameraPosY = Round(camera.Position.Y);
+            CameraPosZ = Round(camera.Position.Z);
+            TargetPosX = Round(target.X);
+            TargetPosY = Round(target.Y);
+            TargetPosZ = Round(target.Z);
+            UpPosX = Round(camera.Up.X);
+            UpPosY = Round(camera.Up.Y);
+            UpPosZ = Round(camera.Up.Z);
+        }
+        finally
+        {
+            _isSyncingCamera = false;
+        }
+    }
+
+    /// <summary>Rounds a coordinate for display.</summary>
+    /// <param name="value">The coordinate to round.</param>
+    /// <returns>The coordinate rounded to three decimal places.</returns>
+    private static float Round(float value) => MathF.Round(value, 3);
+
+    /// <summary>Calculates yaw, pitch and roll from the camera orientation for the sliders.</summary>
+    private void UpdateCameraAngles()
+    {
+        Matrix4x4 m = Matrix4x4.CreateFromQuaternion(Quaternion.Normalize(CameraOrientation));
+        var up = new Vector3(m.M21, m.M22, m.M23);
+        var back = new Vector3(m.M31, m.M32, m.M33);
+
+        float pitch = MathF.Asin(Math.Clamp(back.Y, -1f, 1f));
+        float yaw = MathF.Atan2(back.X, back.Z);
+
+        Matrix4x4 withoutRoll = Matrix4x4.CreateRotationX(-pitch) * Matrix4x4.CreateRotationY(yaw);
+        var rightWithoutRoll = new Vector3(withoutRoll.M11, withoutRoll.M12, withoutRoll.M13);
+        var upWithoutRoll = new Vector3(withoutRoll.M21, withoutRoll.M22, withoutRoll.M23);
+        float roll = MathF.Atan2(
+            -Vector3.Dot(up, rightWithoutRoll),
+            Vector3.Dot(up, upWithoutRoll)
+        );
+
+        float degrees = 180f / MathF.PI;
+
+        _isSyncingCamera = true;
+        try
+        {
+            CameraYaw = MathF.Round(yaw * degrees, 1);
+            CameraPitch = MathF.Round(pitch * degrees, 1);
+            CameraRoll = MathF.Round(roll * degrees, 1);
+        }
+        finally
+        {
+            _isSyncingCamera = false;
+        }
     }
 
     /// <summary>Logs a failed render operation.</summary>

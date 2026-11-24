@@ -76,22 +76,38 @@
               HorizontalContentAlignment="Center"
               Margin="0,0,0,8"
             />
+            <TextBlock Text="{Binding CameraYaw, StringFormat='Yaw: {0:0}°'}" Classes="label" />
+            <Slider Minimum="-180" Maximum="180" Value="{Binding CameraYaw}" />
+
+            <TextBlock Text="{Binding CameraPitch, StringFormat='Pitch: {0:0}°'}" Classes="label" />
+            <Slider Minimum="-90" Maximum="90" Value="{Binding CameraPitch}" />
+
+            <TextBlock Text="{Binding CameraRoll, StringFormat='Roll: {0:0}°'}" Classes="label" />
+            <Slider Minimum="-180" Maximum="180" Value="{Binding CameraRoll}" />
+
+            <TextBlock
+              Text="{Binding CameraZoom, StringFormat='Zoom: {0:0.00}×'}"
+              Classes="label"
+            />
+            <Slider Minimum="0.1" Maximum="2" Value="{Binding CameraZoom}" />
+
+            <TextBlock Text="Position (X, Y, Z)" Classes="label" />
             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="4">
-              <TextBox Grid.Column="0" Text="{Binding CameraPosX}" />
-              <TextBox Grid.Column="1" Text="{Binding CameraPosY}" />
-              <TextBox Grid.Column="2" Text="{Binding CameraPosZ}" />
+              <TextBlock Grid.Column="0" Text="{Binding CameraPosX, StringFormat={}{0:0.00}}" />
+              <TextBlock Grid.Column="1" Text="{Binding CameraPosY, StringFormat={}{0:0.00}}" />
+              <TextBlock Grid.Column="2" Text="{Binding CameraPosZ, StringFormat={}{0:0.00}}" />
             </Grid>
             <TextBlock Text="Target (X, Y, Z)" Classes="label" />
             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="4">
-              <TextBox Grid.Column="0" Text="{Binding TargetPosX}" />
-              <TextBox Grid.Column="1" Text="{Binding TargetPosY}" />
-              <TextBox Grid.Column="2" Text="{Binding TargetPosZ}" />
+              <TextBlock Grid.Column="0" Text="{Binding TargetPosX, StringFormat={}{0:0.00}}" />
+              <TextBlock Grid.Column="1" Text="{Binding TargetPosY, StringFormat={}{0:0.00}}" />
+              <TextBlock Grid.Column="2" Text="{Binding TargetPosZ, StringFormat={}{0:0.00}}" />
             </Grid>
             <TextBlock Text="Up (X, Y, Z)" Classes="label" />
             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="4">
-              <TextBox Grid.Column="0" Text="{Binding UpPosX}" />
-              <TextBox Grid.Column="1" Text="{Binding UpPosY}" />
-              <TextBox Grid.Column="2" Text="{Binding UpPosZ}" />
+              <TextBlock Grid.Column="0" Text="{Binding UpPosX, StringFormat={}{0:0.00}}" />
+              <TextBlock Grid.Column="1" Text="{Binding UpPosY, StringFormat={}{0:0.00}}" />
+              <TextBlock Grid.Column="2" Text="{Binding UpPosZ, StringFormat={}{0:0.00}}" />
             </Grid>
             <Grid ColumnDefinitions="*, 70">
               <TextBlock Text="Field of View" VerticalAlignment="Center" />
