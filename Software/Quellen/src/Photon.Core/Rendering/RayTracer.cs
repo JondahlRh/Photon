@@ -1,8 +1,9 @@
 // -----------------------------------------------------------------------------
-// Author:        Jondahl Rhenius
-// AI Assistance: Autocompletion, Copilot for Information
+// Author:        Jondahl Rhenius, Florian Hipp
+// AI Assistance: Autocompletion, Copilot for Information, Claude for Information and Bug
 // -----------------------------------------------------------------------------
 
+using System.Diagnostics;
 using System.Numerics;
 using Photon.Core.Imaging;
 using Photon.Core.Mathematics;
@@ -38,7 +39,7 @@ public sealed class RayTracer : IRenderer
     }
 
     /// <inheritdoc/>
-    public void Render(
+    public RenderStatistics Render(
         Scene scene,
         RenderSettings settings,
         FrameBuffer target,
@@ -57,7 +58,11 @@ public sealed class RayTracer : IRenderer
             );
         }
 
+        var bvhStopwatch = Stopwatch.StartNew();
         var accelerationStructure = new Bvh(scene);
+        bvhStopwatch.Stop();
+
+        var renderStopwatch = Stopwatch.StartNew();
 
         for (int y = 0; y < target.Height; y++)
         {
@@ -90,5 +95,14 @@ public sealed class RayTracer : IRenderer
 
             target.MarkRowCompleted(y);
         }
+
+        return new RenderStatistics(
+            target.Width,
+            target.Height,
+            scene.Model.TriangleCount,
+            bvhStopwatch.Elapsed,
+            renderStopwatch.Elapsed,
+            (long)target.Width * target.Height
+        );
     }
 }
