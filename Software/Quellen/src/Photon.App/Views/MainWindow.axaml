@@ -83,7 +83,7 @@
             <Slider Minimum="-180" Maximum="180" Value="{Binding CameraYaw}" />
 
             <TextBlock
-              Text="{Binding CameraPitch, StringFormat='Verical Rotation: {0:0}°'}"
+              Text="{Binding CameraPitch, StringFormat='Vertical Rotation: {0:0}°'}"
               Classes="label"
             />
             <Slider Minimum="-90" Maximum="90" Value="{Binding CameraPitch}" />
