@@ -79,6 +79,7 @@ public sealed class Material
 
     /// <summary>
     /// Gets the ambient reflection coefficient (<c>Ka</c>).
+    /// It is read from the MTL file, but the ray tracer lights ambient light with <see cref="Diffuse"/>.
     /// </summary>
     public Vector3 Ambient { get; }
 

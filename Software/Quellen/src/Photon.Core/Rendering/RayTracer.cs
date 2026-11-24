@@ -15,6 +15,28 @@ namespace Photon.Core.Rendering;
 /// </summary>
 public sealed class RayTracer : IRenderer
 {
+    /// <summary>
+    /// Calculates the color at each visible surface point.
+    /// </summary>
+    private readonly ILightingModel _lightingModel;
+
+    /// <summary>
+    /// Initializes a new ray tracer that lights surfaces with <see cref="PhongLighting"/>.
+    /// </summary>
+    public RayTracer()
+        : this(new PhongLighting()) { }
+
+    /// <summary>
+    /// Initializes a new ray tracer with the given lighting model.
+    /// </summary>
+    /// <param name="lightingModel">Calculates the color at each visible surface point.</param>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="lightingModel"/> is null.</exception>
+    public RayTracer(ILightingModel lightingModel)
+    {
+        ArgumentNullException.ThrowIfNull(lightingModel);
+        _lightingModel = lightingModel;
+    }
+
     /// <inheritdoc/>
     public void Render(
         Scene scene,
@@ -57,8 +79,12 @@ public sealed class RayTracer : IRenderer
                     continue;
                 }
 
-                // Remap the normalized normal from [-1, 1] to RGB values in [0, 1].
-                var color = (closestHitInfo.ShadingNormal + Vector3.One) * 0.5f;
+                Vector3 color = _lightingModel.Shade(
+                    ray,
+                    closestHitInfo,
+                    scene.Lighting,
+                    accelerationStructure
+                );
                 target.SetPixel(x, y, color);
             }
 
