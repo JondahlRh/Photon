@@ -57,9 +57,15 @@ public readonly record struct Ray
     /// <param name="hitPoint">The surface point the ray starts from.</param>
     /// <param name="surfaceNormal">The normalized surface normal at <paramref name="hitPoint"/>.</param>
     /// <param name="direction">The direction of the secondary ray.</param>
-    /// <returns>A ray whose origin is offset by <see cref="FloatComparison.Epsilon"/> along the normal.</returns>
-    public static Ray CreateOffset(Vector3 hitPoint, Vector3 surfaceNormal, Vector3 direction)
+    /// <param name="offset">How far the origin is moved along the normal.</param>
+    /// <returns>A ray whose origin is moved by <paramref name="offset"/> along the normal.</returns>
+    public static Ray CreateOffset(
+        Vector3 hitPoint,
+        Vector3 surfaceNormal,
+        Vector3 direction,
+        float offset = FloatComparison.Epsilon
+    )
     {
-        return new Ray(hitPoint + (surfaceNormal * FloatComparison.Epsilon), direction);
+        return new Ray(hitPoint + (surfaceNormal * offset), direction);
     }
 }
