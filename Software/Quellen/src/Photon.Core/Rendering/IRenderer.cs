@@ -1,5 +1,5 @@
 // -----------------------------------------------------------------------------
-// Author:        Jondahl Rhenius, Luca Lengl
+// Author:        Jondahl Rhenius, Luca Lengl, Florian Hipp
 // AI Assistance: Claude for Information, Bug and Warning
 // -----------------------------------------------------------------------------
 
@@ -22,7 +22,8 @@ public interface IRenderer
     /// <param name="cancellationToken">Checked before each row.</param>
     /// <exception cref="ArgumentException">The buffer size does not match the camera.</exception>
     /// <exception cref="OperationCanceledException">The render was cancelled; finished rows stay in the buffer.</exception>
-    void Render(
+    /// <returns>The key figures of the finished render.</returns>
+    RenderStatistics Render(
         Scene scene,
         RenderSettings settings,
         FrameBuffer target,
