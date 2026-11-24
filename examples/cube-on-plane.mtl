@@ -1,0 +1,11 @@
+newmtl Ground
+Ka 0.7 0.7 0.7
+Kd 0.7 0.7 0.7
+Ks 0.1 0.1 0.1
+Ns 10
+
+newmtl Cube
+Ka 0.8 0.25 0.2
+Kd 0.8 0.25 0.2
+Ks 0.6 0.6 0.6
+Ns 40

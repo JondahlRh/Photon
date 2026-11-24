@@ -3,8 +3,10 @@
 // AI Assistance: ChatGPT Codex for render integration tests
 // -----------------------------------------------------------------------------
 
+using System.Numerics;
 using Photon.Application.Tests.Support;
 using Photon.Application.ViewModels;
+using Photon.Core.Imaging;
 using Photon.Core.Rendering;
 
 namespace Photon.Application.Tests.ViewModels;
@@ -31,6 +33,7 @@ public sealed class MainWindowViewModelRenderingTests
         using var model = new TestObjFile();
         var viewModel = new MainWindowViewModel { RenderWidth = 24, RenderHeight = 16 };
         await viewModel.LoadModelAsync(model.Path);
+        viewModel.AddLightCommand.Execute(null);
         bool? completeWhenPublished = null;
         viewModel.PropertyChanged += (_, e) =>
         {
@@ -52,6 +55,65 @@ public sealed class MainWindowViewModelRenderingTests
         Assert.True(viewModel.IsResultVisible);
         Assert.Equal(100d, viewModel.ProgressPercent);
         Assert.Equal("Render finished.", viewModel.StatusText);
+    }
+
+    [Fact]
+    public async Task PointLightFromUiLightsAndShadowsTheRender()
+    {
+        // A floor (8 x 8 at y = 0) and a small square (2 x 2 at y = 1) above its center.
+        using var model = new TestObjFile(
+            """
+            v -4 0 -4
+            v 4 0 -4
+            v 4 0 4
+            v -4 0 4
+            v -1 1 -1
+            v 1 1 -1
+            v 1 1 1
+            v -1 1 1
+            f 1 4 3
+            f 1 3 2
+            f 5 8 7
+            f 5 7 6
+            """
+        );
+        var viewModel = new MainWindowViewModel { RenderWidth = 64, RenderHeight = 64 };
+        await viewModel.LoadModelAsync(model.Path);
+
+        // Look straight down; image right is +x.
+        viewModel.CameraOrientation = Quaternion.CreateFromAxisAngle(Vector3.UnitX, -MathF.PI / 2f);
+
+        await viewModel.StartRenderCommand.ExecuteAsync(null);
+        FrameBuffer unlit = Assert.IsType<FrameBuffer>(viewModel.RenderResult);
+
+        viewModel.AddLightCommand.Execute(null);
+        LightViewModel light = Assert.IsType<LightViewModel>(viewModel.Light);
+        light.PositionX = 0f;
+        light.PositionY = 2f;
+        light.PositionZ = 0f;
+        await viewModel.StartRenderCommand.ExecuteAsync(null);
+        FrameBuffer lit = Assert.IsType<FrameBuffer>(viewModel.RenderResult);
+
+        // The camera frames the scene from about 13 units above the floor, so one floor unit
+        // covers about 4.3 pixels. Seen from the light at height 2, the square shades the
+        // floor up to |x| = 2; seen from the camera, it hides the floor only up to |x| ~ 1.1.
+        const int row = 32;
+        const int shadowColumn = 38; // floor at x ~ 1.5: in the shadow
+        const int litFloorColumn = 44; // floor at x ~ 2.9: lit
+
+        Vector3 litFloor = lit.GetPixel(litFloorColumn, row);
+        Assert.True(
+            Brightness(litFloor) > Brightness(unlit.GetPixel(litFloorColumn, row)) + 0.5f,
+            $"The light does not brighten the floor: {litFloor}."
+        );
+
+        // In the shadow only the ambient light remains, exactly as without any light source.
+        Vector3 shadow = lit.GetPixel(shadowColumn, row);
+        Assert.True(
+            Vector3.Distance(unlit.GetPixel(shadowColumn, row), shadow) < 1e-4f,
+            $"The floor next to the square is not shadowed: {shadow}."
+        );
+        Assert.True(Brightness(shadow) > 0f);
     }
 
     [Theory]
@@ -159,5 +221,10 @@ public sealed class MainWindowViewModelRenderingTests
 
         Assert.True(viewModel.IsResultVisible);
         Assert.Same(result, viewModel.RenderResult);
+    }
+
+    private static float Brightness(Vector3 color)
+    {
+        return color.X + color.Y + color.Z;
     }
 }
