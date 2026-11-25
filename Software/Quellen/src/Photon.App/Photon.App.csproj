@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Desktop UI: Avalonia UI with OpenGL preview via OpenTK, image export via SkiaSharp.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>Photon.App</RootNamespace>
+    <AssemblyName>Photon</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.4" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="11.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="11.0.0" />
+    <PackageReference Include="OpenTK" Version="4.9.4" />
+    <!-- Keep in sync with the SkiaSharp version used by Avalonia.Skia -->
+
+    <PackageReference Include="SkiaSharp" Version="3.119.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Photon.Application\Photon.Application.csproj" />
+    <ProjectReference Include="..\Photon.Core\Photon.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Photon.App.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource
+      Include="Platform/OpenGL/Shaders/preview.vert"
+      LogicalName="Photon.App.Shaders.preview.vert"
+    />
+    <EmbeddedResource
+      Include="Platform/OpenGL/Shaders/preview.frag"
+      LogicalName="Photon.App.Shaders.preview.frag"
+    />
+  </ItemGroup>
+</Project>

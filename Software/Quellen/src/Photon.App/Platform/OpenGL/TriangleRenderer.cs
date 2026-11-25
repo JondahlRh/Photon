@@ -1,0 +1,438 @@
+// -----------------------------------------------------------------------------
+// Author:        BrackyDayn
+// AI Assistance: ChatGpt for summary, exceptions and intigration; ChatGPT Codex for automatic model framing
+// -----------------------------------------------------------------------------
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Numerics;
+using System.Runtime.Versioning;
+using Avalonia.Animation.Easings;
+using OpenTK.Graphics.ES30;
+using Photon.Core.Mathematics;
+using Photon.Core.Scenes;
+
+namespace Photon.App.Platform.OpenGL;
+
+/// <summary>
+/// Renders triangle geometry and material colors from a model using OpenGL.
+/// </summary>
+internal sealed class TriangleRenderer
+{
+    /// <summary>
+    /// OpenGL vertex array object.
+    /// </summary>
+    private int _vao;
+
+    /// <summary>
+    /// OpenGL vertex buffer object.
+    /// </summary>
+    private int _vbo;
+
+    /// <summary>
+    /// OpenGL shader program.
+    /// </summary>
+    private int _shaderProgram;
+
+    /// <summary>
+    /// Number of floats stored for each vertex: position, normal, and color.
+    /// </summary>
+    private const int FloatsPerVertex = 9;
+
+    /// <summary>
+    /// Number of vertices currently uploaded to the GPU.
+    /// </summary>
+    private int _vertexCount;
+
+    /// <summary>
+    /// World-space bounds used to frame the uploaded model and choose clipping planes.
+    /// </summary>
+    private Aabb _modelBounds = Aabb.Empty;
+
+    /// <summary>
+    /// Location of the camera's view-projection uniform.
+    /// </summary>
+    private int _viewProjectionLocation;
+
+    /// <summary>
+    /// Location of the light position uniform.
+    /// </summary>
+    private int _lightPositionLocation;
+
+    /// <summary>The location of the light intensity uniform.</summary>
+    private int _lightIntensityLocation;
+
+    /// <summary>
+    /// Initializes GPU resources without loading a model.
+    /// </summary>
+    /// <param name="isOpenGlEs">Whether the context uses OpenGL ES.</param>
+    public void Initialize(bool isOpenGlEs)
+    {
+        try
+        {
+            _shaderProgram = CreateShaderProgram(isOpenGlEs);
+
+            _viewProjectionLocation = GL.GetUniformLocation(_shaderProgram, "viewProjection");
+
+            _lightPositionLocation = GL.GetUniformLocation(_shaderProgram, "lightPosition");
+
+            _lightIntensityLocation = GL.GetUniformLocation(_shaderProgram, "lightIntensity");
+
+            _vao = GL.GenVertexArray();
+            GL.BindVertexArray(_vao);
+
+            _vbo = GL.GenBuffer();
+            GL.BindBuffer(BufferTarget.ArrayBuffer, _vbo);
+
+            int stride = FloatsPerVertex * sizeof(float);
+
+            GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, stride, IntPtr.Zero);
+            GL.EnableVertexAttribArray(0);
+
+            GL.VertexAttribPointer(
+                1,
+                3,
+                VertexAttribPointerType.Float,
+                false,
+                stride,
+                new IntPtr(3 * sizeof(float))
+            );
+            GL.EnableVertexAttribArray(1);
+
+            GL.VertexAttribPointer(
+                2,
+                3,
+                VertexAttribPointerType.Float,
+                false,
+                stride,
+                new IntPtr(6 * sizeof(float))
+            );
+            GL.EnableVertexAttribArray(2);
+
+            GL.BindVertexArray(0);
+            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
+        }
+        catch
+        {
+            Deinitialize();
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Converts a model into vertex data and uploads it to the GPU.
+    /// </summary>
+    /// <param name="model">The model to display.</param>
+    public void UploadModel(Model model)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+
+        List<float> vertices = new List<float>();
+
+        foreach (Mesh mesh in model.Meshes)
+        {
+            Vector3 color = mesh.Material.Diffuse;
+
+            foreach (MeshTriangle triangle in mesh.Triangles)
+            {
+                //!!!!! Shading for wehn parser supports normals and smoothing groups
+                //AppendVertex(vertices, triangle.Vertex0, mesh.Normals[triangle.Index0], color);
+                //AppendVertex(vertices, triangle.Vertex1, mesh.Normals[triangle.Index1], color);
+                //AppendVertex(vertices, triangle.Vertex2, mesh.Normals[triangle.Index2], color);
+
+                // Temporary flat shading for the demo.
+                Vector3 normal = Vector3.Cross(
+                    triangle.Vertex1 - triangle.Vertex0,
+                    triangle.Vertex2 - triangle.Vertex0
+                );
+
+                float normalLength = normal.Length();
+
+                if (!float.IsFinite(normalLength) || normalLength <= 0f)
+                {
+                    continue;
+                }
+
+                normal /= normalLength;
+
+                AppendVertex(vertices, triangle.Vertex0, normal, color);
+                AppendVertex(vertices, triangle.Vertex1, normal, color);
+                AppendVertex(vertices, triangle.Vertex2, normal, color);
+            }
+        }
+
+        float[] vertexData = vertices.ToArray();
+
+        GL.BindBuffer(BufferTarget.ArrayBuffer, _vbo);
+        GL.BufferData(
+            BufferTarget.ArrayBuffer,
+            vertexData.Length * sizeof(float),
+            vertexData,
+            BufferUsageHint.StaticDraw
+        );
+
+        GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
+
+        _vertexCount = vertexData.Length / FloatsPerVertex;
+        _modelBounds = model.Bounds;
+    }
+
+    /// <summary>
+    /// Appends a vertex's position, normal, and color to the upload data.
+    /// </summary>
+    /// <param name="vertices">The destination vertex data.</param>
+    /// <param name="position">The vertex position.</param>
+    /// <param name="normal">The surface normal.</param>
+    /// <param name="color">The diffuse material color.</param>
+    private static void AppendVertex(
+        List<float> vertices,
+        Vector3 position,
+        Vector3 normal,
+        Vector3 color
+    )
+    {
+        vertices.Add(position.X);
+        vertices.Add(position.Y);
+        vertices.Add(position.Z);
+
+        vertices.Add(normal.X);
+        vertices.Add(normal.Y);
+        vertices.Add(normal.Z);
+
+        vertices.Add(color.X);
+        vertices.Add(color.Y);
+        vertices.Add(color.Z);
+    }
+
+    /// <summary>
+    /// Renders the model into the specified framebuffer.
+    /// <param name="framebuffer">Avalonia's framebuffer.</param>
+    /// <param name="width">Viewport width in physical pixels.</param>
+    /// <param name="height">Viewport height in physical pixels.</param>
+    /// <param name="orientation">The camera rotation.</param>
+    /// <param name="zoom">The camera zoom factor.</param>
+    /// <param name="light">The active point light, or null for ambient lighting only.</param>
+    /// </summary>
+    public void Render(
+        int framebuffer,
+        int width,
+        int height,
+        Quaternion orientation,
+        float zoom,
+        PointLight? light
+    )
+    {
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, framebuffer);
+        GL.Viewport(0, 0, width, height);
+
+        GL.Disable(EnableCap.ScissorTest);
+        GL.Disable(EnableCap.Blend);
+        GL.Disable(EnableCap.CullFace);
+
+        GL.Enable(EnableCap.DepthTest);
+        GL.DepthMask(true);
+        GL.DepthFunc(DepthFunction.Less);
+
+        GL.ClearColor(17f / 255f, 24f / 255f, 39f / 255f, 1.0f);
+        GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+
+        if (_vertexCount == 0)
+        {
+            GL.Disable(EnableCap.DepthTest);
+            return;
+        }
+
+        var camera = Camera.FrameBounds(_modelBounds, width, height, orientation, zoom);
+        Matrix4x4 view = Matrix4x4.CreateLookAt(camera.Position, _modelBounds.Center, camera.Up);
+        float radius = MathF.Max(0.01f, _modelBounds.Size.Length() * 0.5f);
+        float distance = Vector3.Distance(camera.Position, _modelBounds.Center);
+
+        Matrix4x4 projection = Matrix4x4.CreatePerspectiveFieldOfView(
+            MathF.PI / 3.0f,
+            (float)width / height,
+            MathF.Max(radius * 0.001f, distance - (1.1f * radius)),
+            distance + (1.1f * radius)
+        );
+
+        // System.Numerics applies the view transform before the projection.
+        Matrix4x4 viewProjection = view * projection;
+
+        float[] matrixValues =
+        {
+            viewProjection.M11,
+            viewProjection.M12,
+            viewProjection.M13,
+            viewProjection.M14,
+            viewProjection.M21,
+            viewProjection.M22,
+            viewProjection.M23,
+            viewProjection.M24,
+            viewProjection.M31,
+            viewProjection.M32,
+            viewProjection.M33,
+            viewProjection.M34,
+            viewProjection.M41,
+            viewProjection.M42,
+            viewProjection.M43,
+            viewProjection.M44,
+        };
+
+        GL.UseProgram(_shaderProgram);
+
+        // OpenGL reads these values as the transpose needed by GLSL's
+        // column-vector multiplication.
+        GL.UniformMatrix4(_viewProjectionLocation, 1, false, matrixValues);
+
+        Vector3 lightPosition = light?.Position ?? Vector3.Zero;
+        Vector3 lightintensity = light?.Intensity ?? Vector3.Zero;
+
+        GL.Uniform3(_lightPositionLocation, lightPosition.X, lightPosition.Y, lightPosition.Z);
+        GL.Uniform3(_lightIntensityLocation, lightintensity.X, lightintensity.Y, lightintensity.Z);
+
+        GL.BindVertexArray(_vao);
+        GL.DrawArrays(PrimitiveType.Triangles, 0, _vertexCount);
+
+        GL.BindVertexArray(0);
+        GL.UseProgram(0);
+        GL.Disable(EnableCap.DepthTest);
+    }
+
+    /// <summary>
+    /// Releases the GPU resources created by this renderer.
+    /// </summary>
+    public void Deinitialize()
+    {
+        if (_vao != 0)
+        {
+            GL.DeleteVertexArray(_vao);
+            _vao = 0;
+        }
+
+        if (_vbo != 0)
+        {
+            GL.DeleteBuffer(_vbo);
+            _vbo = 0;
+        }
+
+        if (_shaderProgram != 0)
+        {
+            GL.DeleteProgram(_shaderProgram);
+            _shaderProgram = 0;
+        }
+
+        _vertexCount = 0;
+    }
+
+    /// <summary>
+    /// Loads, compiles, and links the preview shaders.
+    /// </summary>
+    /// <param name="isOpenGlEs">Whether the context uses OpenGL ES.</param>
+    /// <returns>The linked shader program.</returns>
+    private static int CreateShaderProgram(bool isOpenGlEs)
+    {
+        string version = isOpenGlEs
+            ? "#version 300 es\nprecision highp float;\n"
+            : "#version 150\n";
+
+        string vertexSource = version + ReadShader("preview.vert");
+        string fragmentSource = version + ReadShader("preview.frag");
+
+        int vertexShader = CompileShader(ShaderType.VertexShader, vertexSource);
+        int fragmentShader = 0;
+        int program = 0;
+
+        try
+        {
+            fragmentShader = CompileShader(ShaderType.FragmentShader, fragmentSource);
+
+            program = GL.CreateProgram();
+
+            GL.AttachShader(program, vertexShader);
+            GL.AttachShader(program, fragmentShader);
+
+            GL.BindAttribLocation(program, 0, "position");
+            GL.BindAttribLocation(program, 1, "normal");
+            GL.BindAttribLocation(program, 2, "color");
+
+            GL.LinkProgram(program);
+            GL.GetProgram(program, GetProgramParameterName.LinkStatus, out int success);
+
+            if (success == 0)
+            {
+                throw new InvalidOperationException(
+                    "Shader linking failed: " + GL.GetProgramInfoLog(program)
+                );
+            }
+
+            GL.DetachShader(program, vertexShader);
+            GL.DetachShader(program, fragmentShader);
+
+            return program;
+        }
+        catch
+        {
+            if (program != 0)
+            {
+                GL.DeleteProgram(program);
+            }
+            throw;
+        }
+        finally
+        {
+            GL.DeleteShader(vertexShader);
+            if (fragmentShader != 0)
+            {
+                GL.DeleteShader(fragmentShader);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Reads an embedded preview shader.
+    /// </summary>
+    /// <param name="fileName">The shader file name.</param>
+    /// <returns>The shader source code.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when the shader resource cannot be found.
+    /// </exception>
+    private static string ReadShader(string fileName)
+    {
+        string resourceName = "Photon.App.Shaders." + fileName;
+
+        using Stream? stream = typeof(TriangleRenderer).Assembly.GetManifestResourceStream(
+            resourceName
+        );
+
+        if (stream == null)
+        {
+            throw new InvalidOperationException("Shader resource not found: " + resourceName);
+        }
+
+        using StreamReader reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    }
+
+    /// <summary>
+    /// Compiles OpenGL shader
+    /// </summary>
+    private static int CompileShader(ShaderType type, string source)
+    {
+        int shader = GL.CreateShader(type);
+
+        GL.ShaderSource(shader, source);
+        GL.CompileShader(shader);
+
+        GL.GetShader(shader, ShaderParameter.CompileStatus, out int success);
+
+        if (success == 0)
+        {
+            string error = GL.GetShaderInfoLog(shader);
+
+            GL.DeleteShader(shader);
+
+            throw new InvalidOperationException($"Shader compilation failed: {error}");
+        }
+
+        return shader;
+    }
+}

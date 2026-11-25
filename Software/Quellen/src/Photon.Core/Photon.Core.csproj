@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Rendering core: geometry, ray tracing, scene parsing.
+    Must stay free of any UI or graphics framework (checked in CI).
+  -->
+  <PropertyGroup>
+    <RootNamespace>Photon.Core</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Photon.Core.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="11.0.0" />
+  </ItemGroup>
+</Project>

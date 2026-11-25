@@ -1,0 +1,227 @@
+<Window
+  xmlns:views="clr-namespace:Photon.App.Views"
+  xmlns="https://github.com/avaloniaui"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:vm="using:Photon.Application.ViewModels"
+  x:DataType="vm:MainWindowViewModel"
+  x:Class="Photon.App.Views.MainWindow"
+  Title="Photon"
+  Width="1280"
+  Height="720"
+>
+  <Window.Styles>
+    <Style Selector="TextBlock.label">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="Gray" />
+    </Style>
+    <Style Selector="TextBlock.heading">
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Margin" Value="0,8,0,0" />
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="MinWidth" Value="0" />
+      <Setter Property="Padding" Value="6,3" />
+    </Style>
+  </Window.Styles>
+
+  <Grid>
+    <DockPanel IsVisible="{Binding !IsResultVisible}">
+      <Border DockPanel.Dock="Top" BorderBrush="Gray" BorderThickness="0,0,0,1" Padding="8">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Content="Import OBJ" Click="ImportModelClicked" />
+          <Button Content="Import Scene" />
+          <Button
+            Content="Show Result"
+            Command="{Binding ShowResultCommand}"
+            IsVisible="{Binding HasRenderResult}"
+          />
+          <TextBlock
+            Text="{Binding ModelPath}"
+            ToolTip.Tip="{Binding ModelPath}"
+            TextTrimming="CharacterEllipsis"
+            MaxWidth="260"
+            Classes="label"
+            VerticalAlignment="Center"
+            Margin="12,0,0,0"
+          />
+        </StackPanel>
+      </Border>
+
+      <Border DockPanel.Dock="Bottom" BorderBrush="Gray" BorderThickness="0,1,0,0" Padding="8">
+        <Grid ColumnDefinitions="120, *, Auto" ColumnSpacing="12">
+          <TextBlock Grid.Column="0" Text="{Binding StatusText}" VerticalAlignment="Center" />
+          <ProgressBar
+            Grid.Column="1"
+            Minimum="0"
+            Maximum="100"
+            Value="{Binding ProgressPercent}"
+            VerticalAlignment="Center"
+          />
+          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+            <Button Content="Cancel" />
+            <Button Content="Start Rendering" Command="{Binding StartRenderCommand}" />
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <Border DockPanel.Dock="Right" Width="270" BorderBrush="Gray" BorderThickness="1,0,0,0">
+        <ScrollViewer>
+          <StackPanel Margin="12" Spacing="6">
+            <TextBlock Text="Camera" Classes="heading" Margin="0" />
+            <TextBlock Text="Position (X, Y, Z)" Classes="label" />
+            <Button
+              Content="Reset Camera"
+              Command="{Binding ResetCameraCommand}"
+              HorizontalAlignment="Stretch"
+              HorizontalContentAlignment="Center"
+              Margin="0,0,0,8"
+            />
+            <TextBlock
+              Text="{Binding CameraYaw, StringFormat='Horizontal Rotation: {0:0}°'}"
+              Classes="label"
+            />
+            <Slider Minimum="-180" Maximum="180" Value="{Binding CameraYaw}" />
+
+            <TextBlock
+              Text="{Binding CameraPitch, StringFormat='Vertical Rotation: {0:0}°'}"
+              Classes="label"
+            />
+            <Slider Minimum="-90" Maximum="90" Value="{Binding CameraPitch}" />
+
+            <TextBlock Text="{Binding CameraRoll, StringFormat='Roll: {0:0}°'}" Classes="label" />
+            <Slider Minimum="-180" Maximum="180" Value="{Binding CameraRoll}" />
+
+            <TextBlock
+              Text="{Binding CameraZoom, StringFormat='Zoom: {0:0.00}×'}"
+              Classes="label"
+            />
+            <Slider Minimum="0.1" Maximum="2" Value="{Binding CameraZoom}" />
+
+            <TextBlock Text="Position (X, Y, Z)" Classes="label" />
+            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="4">
+              <TextBlock Grid.Column="0" Text="{Binding CameraPosX, StringFormat={}{0:0.00}}" />
+              <TextBlock Grid.Column="1" Text="{Binding CameraPosY, StringFormat={}{0:0.00}}" />
+              <TextBlock Grid.Column="2" Text="{Binding CameraPosZ, StringFormat={}{0:0.00}}" />
+            </Grid>
+            <TextBlock Text="Target (X, Y, Z)" Classes="label" />
+            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="4">
+              <TextBlock Grid.Column="0" Text="{Binding TargetPosX, StringFormat={}{0:0.00}}" />
+              <TextBlock Grid.Column="1" Text="{Binding TargetPosY, StringFormat={}{0:0.00}}" />
+              <TextBlock Grid.Column="2" Text="{Binding TargetPosZ, StringFormat={}{0:0.00}}" />
+            </Grid>
+            <TextBlock Text="Up (X, Y, Z)" Classes="label" />
+            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="4">
+              <TextBlock Grid.Column="0" Text="{Binding UpPosX, StringFormat={}{0:0.00}}" />
+              <TextBlock Grid.Column="1" Text="{Binding UpPosY, StringFormat={}{0:0.00}}" />
+              <TextBlock Grid.Column="2" Text="{Binding UpPosZ, StringFormat={}{0:0.00}}" />
+            </Grid>
+            <Grid ColumnDefinitions="*, 70">
+              <TextBlock Text="Field of View" VerticalAlignment="Center" />
+              <TextBox Grid.Column="1" Text="{Binding FieldOfView}" />
+            </Grid>
+
+            <Separator Margin="0,8" />
+
+            <TextBlock Text="Render Quality" Classes="heading" Margin="0" />
+            <TextBlock Text="Resolution (width x height)" Classes="label" />
+            <Grid ColumnDefinitions="*, Auto, *" ColumnSpacing="6">
+              <TextBox Grid.Column="0" Text="{Binding RenderWidth}" />
+              <TextBlock Grid.Column="1" Text="x" VerticalAlignment="Center" />
+              <TextBox Grid.Column="2" Text="{Binding RenderHeight}" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*, 70">
+              <TextBlock Text="Samples per Pixel" VerticalAlignment="Center" />
+              <TextBox Grid.Column="1" Text="{Binding SamplesPerPixel}" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*, 70">
+              <TextBlock Text="Max. Recursion Depth" VerticalAlignment="Center" />
+              <TextBox Grid.Column="1" Text="{Binding MaxRecursionDepth}" />
+            </Grid>
+
+            <Separator Margin="0,8" />
+
+            <TextBlock Text="Lights" Classes="heading" Margin="0" />
+            <TextBlock
+              Text="No lights yet"
+              Classes="label"
+              FontStyle="Italic"
+              IsVisible="{Binding !HasLight}"
+            />
+
+            <Border
+              BorderBrush="Gray"
+              BorderThickness="1"
+              Padding="8"
+              IsVisible="{Binding HasLight}"
+            >
+              <StackPanel Spacing="6">
+                <TextBlock Text="Light 1 — White" FontWeight="SemiBold" />
+                <TextBlock Text="Position (X, Y, Z)" Classes="label" />
+                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="4">
+                  <TextBox Grid.Column="0" Text="{Binding Light.PositionX}" />
+                  <TextBox Grid.Column="1" Text="{Binding Light.PositionY}" />
+                  <TextBox Grid.Column="2" Text="{Binding Light.PositionZ}" />
+                </Grid>
+                <Grid ColumnDefinitions="*, 90">
+                  <TextBlock Text="Intensity" VerticalAlignment="Center" />
+                  <TextBox Grid.Column="1" Text="{Binding Light.Intensity}" />
+                </Grid>
+                <Button
+                  Content="Remove Light"
+                  Command="{Binding RemoveLightCommand}"
+                  HorizontalAlignment="Left"
+                />
+              </StackPanel>
+            </Border>
+
+            <Button
+              Content="+ Add Light"
+              Command="{Binding AddLightCommand}"
+              IsEnabled="{Binding !HasLight}"
+              HorizontalAlignment="Stretch"
+              HorizontalContentAlignment="Center"
+            />
+
+            <TextBlock
+              Text="Example error message"
+              Foreground="Red"
+              TextWrapping="Wrap"
+              IsVisible="False"
+            />
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+
+      <Grid Margin="12">
+        <Border Background="#0e3361" BorderBrush="Gray" BorderThickness="1">
+          <views:ModelPreviewControl
+            x:Name="Preview"
+            PointerPressed="PreviewPointerPressed"
+            PointerMoved="PreviewPointerMoved"
+            PointerReleased="PreviewPointerReleased"
+            PointerCaptureLost="PreviewPointerCaptureLost"
+            PointerWheelChanged="PreviewPointerWheelChanged"
+          />
+        </Border>
+      </Grid>
+    </DockPanel>
+
+    <DockPanel IsVisible="{Binding IsResultVisible}">
+      <Border DockPanel.Dock="Top" BorderBrush="Gray" BorderThickness="0,0,0,1" Padding="8">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Content="Edit Scene" Command="{Binding EditSceneCommand}" />
+          <Button Content="Save PNG" Click="SavePngClicked" />
+          <Button Content="Export Scene" />
+        </StackPanel>
+      </Border>
+
+      <Grid Margin="12">
+        <Border Background="White" BorderBrush="Gray" BorderThickness="1">
+          <Image x:Name="RenderResultImage" Stretch="Uniform" />
+        </Border>
+      </Grid>
+    </DockPanel>
+  </Grid>
+</Window>
